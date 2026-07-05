@@ -10,3 +10,17 @@
  * 直後何イベントまで「直近のミス音と一致する単音イベント」を探すか。
  */
 export const SKIP_SEARCH_RANGE = 2;
+
+/**
+ * ランドマーク履歴リングバッファの保持フレーム数(仕様書 7.2 の重要注記「直近 5 フレーム程度」)。
+ * カメラフレームと MIDI の時刻ズレ対策。Note On の時刻に最も近いフレームを選ぶ。
+ */
+export const LANDMARK_HISTORY_SIZE = 5;
+
+/**
+ * MediaPipe の handedness ラベルを左右読み替えるか(仕様書 7.2 の注意書き)。
+ * handedness はセルフィービュー前提のラベル付けのため、非反転映像では
+ * Left/Right を読み替える必要がある可能性がある。実カメラの映像で必ず検証して確定すること
+ * (P2 のカメラ確認画面に handedness が表示されるので、実際の手と一致するか確認する)。
+ */
+export const SWAP_HANDEDNESS = false;

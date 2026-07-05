@@ -104,3 +104,38 @@ export interface FinishedResult {
   /** 救済ジャンプで終了した場合のみ: スキップされたイベントの index 一覧 */
   skippedEventIndices?: number[];
 }
+
+// ---- 手認識(仕様書 7.2 の入力)の型 ----
+// MediaPipe から得たデータを純データ型に変換したもの。
+// P3 の指特定(fingerEstimator)の入力になるため、vision/ ではなく core/ に置く
+// (core は UI・ブラウザ API に依存しないという方針を守るための依存方向)。
+
+/** 手の 1 ランドマーク(MediaPipe の正規化座標。x, y は 0〜1、z は手首基準の奥行き) */
+export interface HandLandmark {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * 検出された 1 つの手。
+ * handedness は生映像基準に正規化済みの値(SWAP_HANDEDNESS 定数を通した後)。
+ * 楽曲データの hand("L"/"R")との対応は Left=L, Right=R。
+ */
+export interface DetectedHand {
+  handedness: Hand;
+  /** handedness の信頼度(0〜1) */
+  score: number;
+  /** 21 点のランドマーク(仕様書 7.2。指先は index 4, 8, 12, 16, 20) */
+  landmarks: HandLandmark[];
+}
+
+/**
+ * 1 フレーム分の検出結果。
+ * timestampMs は performance.now() 基準(MIDI 側 NoteMessage.timestampMs と同一時計)。
+ * Note On の時刻に最も近いフレームを選ぶために使う(仕様書 7.2 の重要注記)。
+ */
+export interface LandmarkFrame {
+  timestampMs: number;
+  hands: DetectedHand[];
+}
