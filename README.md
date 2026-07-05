@@ -8,7 +8,8 @@
 ## 開発状況
 
 - **P1 完了**: プロジェクト雛形 + バーチャル MIDI + 判定エンジン(スコアフォロー・音判定)
-- P2 以降(カメラ・MediaPipe、キャリブレーション、運指判定 ほか)は未着手
+- **P2 完了**: カメラ選択・プレビュー + MediaPipe Hands(両手 21 点)+ ランドマーク描画 + 履歴リングバッファ
+- P3 以降(キャリブレーション、指特定、運指判定 ほか)は未着手
 
 ## セットアップ
 
@@ -54,16 +55,41 @@ MIDI キーボード実機がなくても、画面上の鍵盤のクリック/�
 5. 同じ間違いを 2 回続けると「弾き飛ばし」救済が働き、先のイベントへジャンプする(仕様書 7.1)
 6. 「最初からやり直す」で進行がリセットされる
 
+## P2 の動作確認手順(カメラ)
+
+Web カメラ(またはスマホの Web カメラ化アプリ)が必要です。
+
+1. `npm run dev` で起動し、上部タブの「P2: カメラ確認」を開く
+2. ブラウザのカメラ権限を許可する → プレビューが表示される
+3. 両手をカメラに映す → 手ごとに 21 点のランドマークと骨格線が追従して描画される
+   (左手=水色 / 右手=オレンジ。**実際の手と左右が逆に表示される場合は `src/core/constants.ts` の
+   `SWAP_HANDEDNESS` の切替が必要なので報告してください**)
+4. 「認識状態」に検出中の手の数・信頼度・処理 fps が表示される(PC で 20fps 以上が目標)
+5. 「左右反転(ミラー)表示」を ON にすると表示だけが反転する(内部の座標系は変わらない)
+6. 権限を拒否した場合はエラーメッセージと再試行ボタンが表示される
+
+カメラ映像は端末の外に一切送信されません(すべてブラウザ内で処理)。
+
+## 同梱物のライセンス
+
+- `public/mediapipe/` の WASM ランタイムと手認識モデル `hand_landmarker.task` は
+  Google の [MediaPipe](https://developers.google.com/mediapipe) の配布物(Apache License 2.0)です。
+  モデルの取得元: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task`
+
 ## ディレクトリ構成
 
 仕様書 13 章に準拠。判定エンジン(`src/core/`)は UI・ブラウザ API に依存しない純 TypeScript で、`tests/core/` にユニットテストがある。
 
 ```
+public/
+  mediapipe/   MediaPipe の WASM ランタイムと手認識モデル(自前配信)
 src/
   core/        判定エンジン(スコアフォロー等。テスト対象)
   midi/        MIDI 入力(バーチャル MIDI / 共通インターフェース)
+  vision/      手認識(MediaPipe ラッパー / ランドマーク履歴リングバッファ)
   songs/       楽曲 JSON(仕様書 8.1 スキーマ)
   components/  React コンポーネント
 tests/
-  core/        Vitest ユニットテスト
+  core/        Vitest ユニットテスト(スコアフォロー)
+  vision/      Vitest ユニットテスト(リングバッファ)
 ```
