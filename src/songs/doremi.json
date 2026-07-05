@@ -1,0 +1,16 @@
+{
+  "id": "test-doremi",
+  "title": "ドレミファソファミレド(テスト曲)",
+  "difficulty": 0,
+  "events": [
+    { "index": 0, "measure": 1, "posInMeasure": 1, "notes": [{ "midi": 60, "finger": 1, "hand": "R" }] },
+    { "index": 1, "measure": 1, "posInMeasure": 2, "notes": [{ "midi": 62, "finger": 2, "hand": "R" }] },
+    { "index": 2, "measure": 1, "posInMeasure": 3, "notes": [{ "midi": 64, "finger": 3, "hand": "R" }] },
+    { "index": 3, "measure": 1, "posInMeasure": 4, "notes": [{ "midi": 65, "finger": 4, "hand": "R" }] },
+    { "index": 4, "measure": 2, "posInMeasure": 1, "notes": [{ "midi": 67, "finger": 5, "hand": "R" }] },
+    { "index": 5, "measure": 2, "posInMeasure": 2, "notes": [{ "midi": 65, "finger": 4, "hand": "R" }] },
+    { "index": 6, "measure": 2, "posInMeasure": 3, "notes": [{ "midi": 64, "finger": 3, "hand": "R" }] },
+    { "index": 7, "measure": 2, "posInMeasure": 4, "notes": [{ "midi": 62, "finger": 2, "hand": "R" }] },
+    { "index": 8, "measure": 3, "posInMeasure": 1, "notes": [{ "midi": 60, "finger": 1, "hand": "R" }] }
+  ]
+}
