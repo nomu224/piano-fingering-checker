@@ -7,3 +7,6 @@ dist/
 # ログ・一時ファイル
 *.log
 .DS_Store
+
+# 開発環境ローカル設定(絶対パスを含むため共有しない)
+.claude/launch.json
