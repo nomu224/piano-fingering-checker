@@ -2,10 +2,11 @@
 // P1/P2 時点では動作確認用のデバッグ画面を仮タブで切り替えて表示する。
 // S-01〜S-06 の正式な画面遷移は後続フェーズで実装する。
 import { useState } from "react";
+import { CalibrationDebug } from "./components/CalibrationDebug";
 import { CameraDebug } from "./components/CameraDebug";
 import { PracticeDebug } from "./components/PracticeDebug";
 
-type DebugTab = "practice" | "camera";
+type DebugTab = "practice" | "camera" | "calibration";
 
 export default function App() {
   const [tab, setTab] = useState<DebugTab>("practice");
@@ -29,8 +30,13 @@ export default function App() {
         <button style={tabStyle(tab === "camera")} onClick={() => setTab("camera")}>
           P2: カメラ確認
         </button>
+        <button style={tabStyle(tab === "calibration")} onClick={() => setTab("calibration")}>
+          P3: キャリブレーション・指特定
+        </button>
       </div>
-      {tab === "practice" ? <PracticeDebug /> : <CameraDebug />}
+      {tab === "practice" && <PracticeDebug />}
+      {tab === "camera" && <CameraDebug />}
+      {tab === "calibration" && <CalibrationDebug />}
     </div>
   );
 }
