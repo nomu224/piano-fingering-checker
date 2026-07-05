@@ -1,0 +1,9 @@
+# 依存パッケージ
+node_modules/
+
+# ビルド成果物
+dist/
+
+# ログ・一時ファイル
+*.log
+.DS_Store

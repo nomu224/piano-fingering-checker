@@ -1,0 +1,19 @@
+/* 全体の基本スタイル
+   練習画面は「画面を見なくても使える」前提のため、
+   遠目でも分かる大きな表示を優先する(仕様書 9 章) */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  background: #1e1e2e;
+  color: #eee;
+}
+
+#root {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
