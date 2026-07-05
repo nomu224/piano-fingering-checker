@@ -139,3 +139,51 @@ export interface LandmarkFrame {
   timestampMs: number;
   hands: DetectedHand[];
 }
+
+// ---- キャリブレーション(仕様書 F-03)と指特定(仕様書 7.2)の型 ----
+
+/**
+ * キャリブレーション結果: 基準 2 鍵による線形補間(F-03 手順 4)。
+ * x は映像の正規化座標(0〜1、生映像基準)。
+ * セッションごとにメモリ内でのみ保持する(F-03: 保存しない)。
+ */
+export interface KeyboardCalibration {
+  /** 低い方の基準鍵盤のノート番号 */
+  lowMidi: number;
+  /** 低い方の基準鍵盤の x 座標 */
+  lowX: number;
+  /** 高い方の基準鍵盤のノート番号 */
+  highMidi: number;
+  /** 高い方の基準鍵盤の x 座標 */
+  highX: number;
+}
+
+/** 指番号(親指=1, 人差し指=2, 中指=3, 薬指=4, 小指=5) */
+export type FingerNumber = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * 指特定の結果(仕様書 7.2)。
+ * 距離・マージンの単位はすべて「半音間隔」比
+ * (キャリブレーションで得た隣接鍵盤の x 間隔を 1.0 とする。解像度に依存させないため)。
+ */
+export type FingerEstimateResult =
+  | {
+      status: "estimated";
+      finger: FingerNumber;
+      /** 採用した指先と鍵盤位置の距離(半音間隔比)。小さいほど信頼できる */
+      distanceSemitones: number;
+      /** 1 位と 2 位の距離差(半音間隔比)。大きいほど信頼できる */
+      marginSemitones: number;
+      /** 拮抗のため y 座標による第 2 判定を使ったか */
+      usedYTieBreak: boolean;
+    }
+  | {
+      status: "undetermined";
+      /**
+       * 判定不能の理由:
+       * - handNotDetected: 対象の手が検出されていない(フレーム無しも含む)
+       * - tooFar: どの指も鍵盤に十分近くない(最小距離 > 閾値)
+       * - ambiguous: 1 位と 2 位が拮抗し、y 座標でも判別できない
+       */
+      reason: "handNotDetected" | "tooFar" | "ambiguous";
+    };

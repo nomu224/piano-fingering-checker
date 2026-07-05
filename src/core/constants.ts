@@ -27,3 +27,35 @@ export const LANDMARK_HISTORY_SIZE = 5;
  * カメラ環境を大きく変えた場合は P2 カメラ確認画面で再確認すること。
  */
 export const SWAP_HANDEDNESS = false;
+
+// ---- 指特定(仕様書 7.2)の閾値。単位は「半音間隔」比 ----
+
+/**
+ * 最小距離がこれを超えたら「どの指も鍵盤に十分近くない」として判定不能(仕様書 7.2)。
+ */
+export const FINGER_MAX_DISTANCE_SEMITONES = 0.6;
+
+/**
+ * 1 位と 2 位の距離差がこれ未満なら拮抗とみなし、y 座標を第 2 の判定材料に使う(仕様書 7.2)。
+ */
+export const FINGER_AMBIGUOUS_MARGIN_SEMITONES = 0.25;
+
+/**
+ * 拮抗時の y 座標差がこれ未満(画像高さの 2%。正規化座標なので 0.02)なら判定不能(仕様書 7.2)。
+ */
+export const FINGER_Y_TIEBREAK_MIN_DIFF = 0.02;
+
+// ---- キャリブレーション(仕様書 F-03)のパラメータ ----
+
+/**
+ * 確認ステップ(F-03 手順 5)で、ズレがこれ(半音間隔比)を超えた打鍵が
+ * 1 回でもあれば再キャリブレーションを促す(強制はしない)。
+ * 0.5 = 隣の鍵盤と取り違えるレベル。
+ */
+export const CALIBRATION_MAX_DEVIATION_SEMITONES = 0.5;
+
+/**
+ * 基準 2 鍵の推奨距離(半音)。1 オクターブ(12)以上離すようガイドに明記する(F-03 手順 2)。
+ * 未満でも続行は可能(警告のみ。仕様は「ガイドに明記」までを要求)。
+ */
+export const CALIBRATION_RECOMMENDED_REF_DISTANCE = 12;
