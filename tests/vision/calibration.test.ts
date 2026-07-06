@@ -71,15 +71,17 @@ describe("buildCalibration(基準2点→線形補間)", () => {
 });
 
 describe("deviationSemitones(確認ステップのズレ計算)", () => {
-  // ド4(60)=0.1, ド5(72)=0.7 → 半音間隔 0.05
+  // ド4(60)=0.1, ド5(72)=0.7 → 平均半音間隔 = 0.6 / 12 = 0.05
   const calib = buildCalibration({ midi: 60, x: 0.1 }, { midi: 72, x: 0.7 });
+  // レ4(62)の推定位置 = ド4 から白鍵 1 個分右(実鍵盤ジオメトリ)
+  const d4x = 0.1 + 0.6 / 7;
 
   it("推定位置ぴったりならズレ 0", () => {
-    expect(deviationSemitones(calib, 62, 0.2)).toBeCloseTo(0);
+    expect(deviationSemitones(calib, 62, d4x)).toBeCloseTo(0);
   });
 
-  it("ズレは半音間隔比で返る", () => {
-    // レ4(62) の推定位置 0.2 に対し実測 0.225 → 0.025 / 0.05 = 0.5 半音
-    expect(deviationSemitones(calib, 62, 0.225)).toBeCloseTo(0.5);
+  it("ズレは平均半音間隔比で返る", () => {
+    // 実測が推定位置から 0.025 ずれている → 0.025 / 0.05 = 0.5 半音
+    expect(deviationSemitones(calib, 62, d4x + 0.025)).toBeCloseTo(0.5);
   });
 });

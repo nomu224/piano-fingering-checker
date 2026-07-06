@@ -15,7 +15,8 @@ import type {
 
 /**
  * テスト用キャリブレーション:
- * ド4(60) が x=0.1、ド5(72) が x=0.7 → 半音間隔 = 0.05
+ * ド4(60) が x=0.1、ド5(72) が x=0.7
+ * → 白鍵 1 個分 = 0.6 / 7、平均半音間隔 = 0.6 / 12 = 0.05
  */
 const CALIB: KeyboardCalibration = {
   lowMidi: 60,
@@ -23,6 +24,9 @@ const CALIB: KeyboardCalibration = {
   highMidi: 72,
   highX: 0.7,
 };
+
+/** 白鍵 1 個分の x 幅(テスト内の期待値計算用) */
+const W = 0.6 / 7;
 
 /**
  * テスト用の手を作るヘルパー。
@@ -46,16 +50,30 @@ function frameWith(...hands: DetectedHand[]): LandmarkFrame {
   return { timestampMs: 0, hands };
 }
 
-describe("キャリブレーションの座標変換", () => {
-  it("半音間隔と線形補間が正しい(F-03 手順 4)", () => {
+describe("キャリブレーションの座標変換(実鍵盤ジオメトリ。F-03 手順 4)", () => {
+  it("基準点の再現と平均半音間隔(オクターブ幅の 1/12)が正しい", () => {
     expect(semitoneWidth(CALIB)).toBeCloseTo(0.05);
     expect(noteToX(CALIB, 60)).toBeCloseTo(0.1);
     expect(noteToX(CALIB, 72)).toBeCloseTo(0.7);
-    expect(noteToX(CALIB, 62)).toBeCloseTo(0.2); // 2 半音上
-    expect(noteToX(CALIB, 58)).toBeCloseTo(0.0); // 基準の範囲外へも外挿できる
   });
 
-  it("高音側が画面左になる配置(半音幅が負)でも補間できる", () => {
+  it("白鍵は等間隔に並ぶ(黒鍵の無いミ・ファ間も詰まらない)", () => {
+    expect(noteToX(CALIB, 62)).toBeCloseTo(0.1 + W); // レ4
+    expect(noteToX(CALIB, 64)).toBeCloseTo(0.1 + 2 * W); // ミ4
+    expect(noteToX(CALIB, 65)).toBeCloseTo(0.1 + 3 * W); // ファ4(ミとの間に黒鍵なしでも 1 白鍵分)
+    expect(noteToX(CALIB, 71)).toBeCloseTo(0.1 + 6 * W); // シ4
+  });
+
+  it("黒鍵は隣り合う白鍵の境目に来る", () => {
+    expect(noteToX(CALIB, 61)).toBeCloseTo(0.1 + 0.5 * W); // ド♯4
+    expect(noteToX(CALIB, 66)).toBeCloseTo(0.1 + 3.5 * W); // ファ♯4
+  });
+
+  it("基準の範囲外へも外挿できる", () => {
+    expect(noteToX(CALIB, 59)).toBeCloseTo(0.1 - W); // シ3(1 白鍵分左)
+  });
+
+  it("高音側が画面左になる配置(幅が負)でも補間できる", () => {
     const reversed: KeyboardCalibration = {
       lowMidi: 60,
       lowX: 0.9,
@@ -64,7 +82,7 @@ describe("キャリブレーションの座標変換", () => {
     };
     expect(semitoneWidth(reversed)).toBeCloseTo(-0.05);
     expect(absSemitoneWidth(reversed)).toBeCloseTo(0.05);
-    expect(noteToX(reversed, 62)).toBeCloseTo(0.8);
+    expect(noteToX(reversed, 62)).toBeCloseTo(0.9 - 0.6 / 7); // レ4 は 1 白鍵分「左」
   });
 });
 
@@ -101,8 +119,8 @@ describe("estimateFinger: 最近傍の指の推定", () => {
     const r1 = estimateFinger(frame, "R", 60, CALIB);
     expect(r1).toMatchObject({ status: "estimated", finger: 1, usedYTieBreak: false });
 
-    // ミ4(64)= x 0.3 に最も近いのは 2 番目(x=0.25)…距離 0.05/0.05 = 1.0 半音 > 0.6 → tooFar になるはず
-    // 指番号対応の確認は中指がぴったりのケースで行う
+    // 指番号対応の確認は指先がぴったり一致するケースで行う
+    // ※ ファ♯4(66)はオクターブの厳密な中点なので、補間方式の変更前後で x=0.4 のまま変わらない
     const r3 = estimateFinger(frame, "R", 66, CALIB); // x = 0.4 → 中指(3)が一致
     expect(r3).toMatchObject({ status: "estimated", finger: 3 });
 

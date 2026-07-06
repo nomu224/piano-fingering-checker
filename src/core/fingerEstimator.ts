@@ -28,29 +28,63 @@ import type {
 const FINGERTIP_LANDMARK_INDICES = [4, 8, 12, 16, 20] as const;
 
 /**
- * 半音 1 つぶんの x 間隔(正規化座標)。
+ * ピッチクラス(ド=0〜シ=11)→ 鍵盤ジオメトリ上の位置(白鍵 1 個分 = 1.0)。
+ * 実鍵盤の配置(仕様書 F-03 手順 4): 白鍵(ド レ ミ ファ ソ ラ シ)は等幅で 0〜6、
+ * 黒鍵は隣り合う白鍵の境目(+0.5)。1 オクターブ = 白鍵 7 個分。
+ */
+const PITCH_CLASS_POSITIONS = [
+  0, // ド
+  0.5, // ド♯(ド・レの境目)
+  1, // レ
+  1.5, // レ♯
+  2, // ミ
+  3, // ファ(ミ・ファの間に黒鍵はない)
+  3.5, // ファ♯
+  4, // ソ
+  4.5, // ソ♯
+  5, // ラ
+  5.5, // ラ♯
+  6, // シ
+] as const;
+
+/** MIDI ノート番号 → 鍵盤ジオメトリ上の位置(白鍵 1 個分 = 1.0) */
+export function keyPosition(midi: number): number {
+  return Math.floor(midi / 12) * 7 + PITCH_CLASS_POSITIONS[midi % 12];
+}
+
+/** 白鍵 1 個ぶんの x 幅(正規化座標)。カメラの向きにより負になり得る */
+function whiteKeyWidth(calibration: KeyboardCalibration): number {
+  return (
+    (calibration.highX - calibration.lowX) /
+    (keyPosition(calibration.highMidi) - keyPosition(calibration.lowMidi))
+  );
+}
+
+/**
+ * 「平均半音間隔」1 つぶんの x 幅 = オクターブ幅の 1/12(仕様書 7.2 の信頼度の単位)。
+ * 1 オクターブ = 白鍵 7 個分 = 12 半音なので、白鍵幅 × 7/12。
  * カメラの向きにより高音側が画面左になる配置では負になるため、
  * 距離計算には absSemitoneWidth を使うこと。
  */
 export function semitoneWidth(calibration: KeyboardCalibration): number {
-  return (
-    (calibration.highX - calibration.lowX) /
-    (calibration.highMidi - calibration.lowMidi)
-  );
+  return (whiteKeyWidth(calibration) * 7) / 12;
 }
 
-/** 半音間隔の絶対値(距離の正規化用) */
+/** 平均半音間隔の絶対値(距離の正規化用) */
 export function absSemitoneWidth(calibration: KeyboardCalibration): number {
   return Math.abs(semitoneWidth(calibration));
 }
 
 /**
  * ノート番号 → 映像内の鍵盤 x 座標(正規化)。
- * 基準 2 鍵の線形補間(半音単位で等間隔と近似。仕様書 F-03 手順 4)。
+ * 基準 2 鍵から実鍵盤ジオメトリ上で線形補間する(仕様書 F-03 手順 4)。
+ * 白鍵は等間隔に並び、黒鍵はない場所(ミ・ファ / シ・ド間)は詰まらない。
  */
 export function noteToX(calibration: KeyboardCalibration, midi: number): number {
   return (
-    calibration.lowX + (midi - calibration.lowMidi) * semitoneWidth(calibration)
+    calibration.lowX +
+    (keyPosition(midi) - keyPosition(calibration.lowMidi)) *
+      whiteKeyWidth(calibration)
   );
 }
 
@@ -94,7 +128,7 @@ export function estimateFinger(
   const kx = noteToX(calibration, midi);
   const unit = absSemitoneWidth(calibration);
 
-  // ロジック 3: 5 指の指先について |指先x - kx| を半音間隔比で計算
+  // ロジック 3: 5 指の指先について |指先x - kx| を平均半音間隔比で計算
   const candidates = FINGERTIP_LANDMARK_INDICES.map((landmarkIndex, i) => {
     const tip = targetHand.landmarks[landmarkIndex];
     return {

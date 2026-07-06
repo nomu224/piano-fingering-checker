@@ -67,8 +67,8 @@ export function buildCalibration(
 
 /**
  * 確認ステップ(F-03 手順 5)のズレ計算。
- * 押された鍵盤の推定 x 座標と、実際の打鍵時の最下指先 x との差を半音間隔比で返す。
- * 0.5 を超えたら「隣の鍵盤と取り違えるレベル」(閾値は constants.CALIBRATION_MAX_DEVIATION_SEMITONES)。
+ * 押された鍵盤の推定 x 座標と、実際の打鍵時の最下指先 x との差を平均半音間隔比で返す。
+ * 0.5 を超えたら「おおよそ隣の鍵盤と取り違えるレベル」(閾値は constants.CALIBRATION_MAX_DEVIATION_SEMITONES)。
  */
 export function deviationSemitones(
   calibration: KeyboardCalibration,

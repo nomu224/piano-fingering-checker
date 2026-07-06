@@ -445,7 +445,7 @@ export function CalibrationDebug() {
         <div style={{ marginBottom: 12 }}>
           {needsRecalib && (
             <p style={{ color: "#ef5350", fontWeight: "bold" }}>
-              ズレが {CALIBRATION_MAX_DEVIATION_SEMITONES} 半音を超えた打鍵があります(隣の鍵盤と取り違えるレベル)。
+              ズレが {CALIBRATION_MAX_DEVIATION_SEMITONES} 半音を超えた打鍵があります(おおよそ隣の鍵盤と取り違えるレベル)。
               再キャリブレーションを推奨します。
             </p>
           )}
