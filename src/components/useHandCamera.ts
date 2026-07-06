@@ -80,6 +80,15 @@ export function useHandCamera(
     } catch (e) {
       setState("error");
       setErrorMessage(toErrorMessage(e));
+      // 起動に失敗しても、別のカメラを選び直せるように一覧だけは更新を試みる
+      // (例: iVCam などの仮想カメラが既定になっていて応答しない場合、
+      //  ここで一覧が出れば内蔵カメラに切り替えられる)
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        setDevices(all.filter((d) => d.kind === "videoinput"));
+      } catch {
+        // 一覧取得も失敗した場合は何もしない(権限自体が無いケース)
+      }
     }
   }, []);
 
