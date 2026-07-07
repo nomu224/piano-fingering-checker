@@ -230,6 +230,21 @@ describe("その他", () => {
     expect(f.processNoteOn(62)).toMatchObject({ type: "duplicateIgnored" });
   });
 
+  it("setCursor で指定イベントから開始できる(途中開始用)", () => {
+    const f = new ScoreFollower(song([[note(60)], [note(62)], [note(64)]]));
+    f.processNoteOn(60); // 少し進めてから
+    f.setCursor(2);
+
+    expect(f.getCursor()).toBe(2);
+    expect(f.processNoteOn(64)).toMatchObject({ type: "finished", eventIndex: 2 });
+  });
+
+  it("setCursor の範囲外はエラー", () => {
+    const f = new ScoreFollower(song([[note(60)]]));
+    expect(() => f.setCursor(-1)).toThrow();
+    expect(() => f.setCursor(1)).toThrow();
+  });
+
   it("reset で最初からやり直せる", () => {
     const f = new ScoreFollower(song([[note(60)], [note(62)]]));
     f.processNoteOn(60);

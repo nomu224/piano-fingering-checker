@@ -187,3 +187,66 @@ export type FingerEstimateResult =
        */
       reason: "handNotDetected" | "tooFar" | "ambiguous";
     };
+
+// ---- 練習の判定ログ(仕様書 F-05 / 7.3)----
+
+/**
+ * 運指判定の結果(音判定と別に記録する)。
+ * - ok / miss: 推定が成立した場合(実測値=推定結果を含む)
+ * - undetermined: 判定不能(7.2)。treatedAsMiss は「判定の厳しさ」設定(F-07。P4 は既定値)による
+ * - skipped: 運指判定そのものを行わなかった場合。
+ *   noFinger = 譜面に指番号が無い(8.1 の finger: null)/ noCamera = カメラなしモード(F-01)。
+ *   ※ undetermined(判定不能数に数える)とは区別する
+ * - notApplicable: 音ミス・弾き飛ばし救済・重複打鍵など、運指判定の対象外(7.3)
+ */
+export type FingeringJudgment =
+  | {
+      kind: "ok" | "miss";
+      expectedFinger: FingerNumber;
+      estimated: Extract<FingerEstimateResult, { status: "estimated" }>;
+    }
+  | {
+      kind: "undetermined";
+      expectedFinger: FingerNumber;
+      reason: "handNotDetected" | "tooFar" | "ambiguous";
+      treatedAsMiss: boolean;
+    }
+  | { kind: "skipped"; reason: "noFinger" | "noCamera" }
+  | { kind: "notApplicable" };
+
+/**
+ * 判定ログの 1 エントリ(仕様書 F-05:
+ * タイムスタンプ、譜面上の位置、期待値、実測値、判定結果)。
+ */
+export interface JudgmentEntry {
+  /** 打鍵時刻(performance.now() 基準) */
+  timestampMs: number;
+  /** 実測値: 押されたノート番号 */
+  playedMidi: number;
+  /** 譜面上の位置(打鍵時点で期待していたイベント) */
+  eventIndex: number;
+  measure: number;
+  posInMeasure: number;
+  /** 期待値: 打鍵時点のイベントの構成音 */
+  expectedNotes: Note[];
+  /** 音判定の結果(スコアフォローの生結果。実測値・スキップ情報を含む) */
+  soundResult: NoteOnResult;
+  /** 運指判定の結果(実測値=推定指番号と信頼度を含む) */
+  fingering: FingeringJudgment;
+  /** この打鍵で UI が鳴らすべきフィードバック音(F-05。core は音を出さない) */
+  feedback: "none" | "noteMiss" | "fingerMiss";
+  /** この打鍵で演奏が終了したか */
+  finished: boolean;
+}
+
+/** 練習中の集計(画面表示用。結果サマリー F-06 の本実装は P5) */
+export interface JudgmentCounts {
+  /** 総打鍵数 */
+  totalNoteOns: number;
+  /** 音ミス数(wrongNote + 弾き飛ばし救済) */
+  noteMisses: number;
+  /** 運指ミス数(指の不一致 + ミス扱いにした判定不能) */
+  fingerMisses: number;
+  /** 指特定の判定不能数(無視した分も含む) */
+  undetermined: number;
+}

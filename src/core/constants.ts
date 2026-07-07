@@ -59,3 +59,14 @@ export const CALIBRATION_MAX_DEVIATION_SEMITONES = 0.5;
  * 未満でも続行は可能(警告のみ。仕様は「ガイドに明記」までを要求)。
  */
 export const CALIBRATION_RECOMMENDED_REF_DISTANCE = 12;
+
+// ---- 練習・フィードバックの既定値(F-07 の設定 UI は P5。それまでの既定値) ----
+
+/**
+ * 指特定が判定不能だったとき「ミス扱い」にするか(仕様書 7.3 / F-07「判定の厳しさ」)。
+ * 既定は false =「無視(カウントのみ)」(12 章: 判定不能カテゴリを設けて無理にミス判定しない)。
+ */
+export const DEFAULT_UNDETERMINED_AS_MISS = false;
+
+/** フィードバック音の音量(0〜1)。F-07 で設定 UI 化するまでの既定値 */
+export const FEEDBACK_VOLUME = 0.3;

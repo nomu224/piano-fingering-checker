@@ -155,6 +155,19 @@ export class ScoreFollower {
     this.finished = false;
   }
 
+  /**
+   * 指定イベントから開始する(F-05: 曲の途中の任意位置から開始)。
+   * 進行状態はリセットされる。小節番号 → イベント index の変換は呼び出し側で行う
+   * (judge.ts の firstEventIndexOfMeasure を参照)。
+   */
+  setCursor(eventIndex: number): void {
+    if (eventIndex < 0 || eventIndex >= this.song.events.length) {
+      throw new Error(`イベント index が範囲外です: ${eventIndex}`);
+    }
+    this.reset();
+    this.cursor = eventIndex;
+  }
+
   /** 現在のカーソル(次に演奏すべきイベントの index)。終了後は最終イベントを指す */
   getCursor(): number {
     return this.cursor;
