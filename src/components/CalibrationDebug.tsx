@@ -49,10 +49,11 @@ interface EstimationLogEntry {
 
 /**
  * 直前の打鍵のプレビュー表示用マーカー(デバッグの見える化)。
- * kx = 押した音の推定鍵盤位置、tipX/tipY = 採用された指先(無ければ null)。
+ * kx = 押した音の推定鍵盤位置(キャリブレーション前の基準記録では null)、
+ * tipX/tipY = 採用・記録された指先(無ければ null)。
  */
 interface NoteOnMark {
-  kx: number;
+  kx: number | null;
   tipX: number | null;
   tipY: number | null;
 }
@@ -132,7 +133,9 @@ function handleNoteOn(
         ...state,
         lowRef: { midi, x: tip.x },
         step: "high",
-        message: `${noteName(midi)} を記録しました`,
+        message: `${noteName(midi)} を記録しました(緑の丸=記録された指先)`,
+        // 見える化: どの指先が記録されたかを緑の丸で示す(押した指と違ったらやり直し)
+        lastMark: { kx: null, tipX: tip.x, tipY: tip.y },
       };
     }
 
@@ -154,7 +157,8 @@ function handleNoteOn(
         refDistanceWarning:
           Math.abs(midi - lowRef.midi) < CALIBRATION_RECOMMENDED_REF_DISTANCE,
         step: "verify",
-        message: `${noteName(midi)} を記録しました`,
+        message: `${noteName(midi)} を記録しました(緑の丸=記録された指先)`,
+        lastMark: { kx: null, tipX: tip.x, tipY: tip.y },
       };
     }
 
@@ -216,7 +220,7 @@ const WHITE_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
  */
 function drawCalibrationOverlay(
   canvas: HTMLCanvasElement,
-  calibration: KeyboardCalibration,
+  calibration: KeyboardCalibration | null,
   mark: NoteOnMark | null,
   mirror: boolean,
 ): void {
@@ -226,41 +230,45 @@ function drawCalibrationOverlay(
   const h = canvas.height;
   ctx.save();
 
-  // 各白鍵の推定位置(画面内に入るものだけ)
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-  ctx.lineWidth = 1;
-  ctx.font = `${Math.max(12, Math.round(h * 0.035))}px sans-serif`;
-  for (
-    let midi = calibration.lowMidi - 24;
-    midi <= calibration.highMidi + 24;
-    midi++
-  ) {
-    if (!WHITE_SEMITONES.includes(midi % 12)) continue;
-    const x = noteToX(calibration, midi);
-    if (x < 0 || x > 1) continue;
-    ctx.beginPath();
-    ctx.moveTo(x * w, h * 0.55);
-    ctx.lineTo(x * w, h);
-    ctx.stroke();
-    // ド(C)にだけ音名ラベルを付ける(ごちゃつき防止)
-    if (midi % 12 === 0) {
-      ctx.save();
-      ctx.translate(x * w + 3, h * 0.6);
-      if (mirror) ctx.scale(-1, 1); // 鏡文字の打ち消し
-      ctx.fillText(noteName(midi), 0, 0);
-      ctx.restore();
+  // 各白鍵の推定位置(キャリブレーション完了後のみ。画面内に入るものだけ)
+  if (calibration) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 1;
+    ctx.font = `${Math.max(12, Math.round(h * 0.035))}px sans-serif`;
+    for (
+      let midi = calibration.lowMidi - 24;
+      midi <= calibration.highMidi + 24;
+      midi++
+    ) {
+      if (!WHITE_SEMITONES.includes(midi % 12)) continue;
+      const x = noteToX(calibration, midi);
+      if (x < 0 || x > 1) continue;
+      ctx.beginPath();
+      ctx.moveTo(x * w, h * 0.55);
+      ctx.lineTo(x * w, h);
+      ctx.stroke();
+      // ド(C)にだけ音名ラベルを付ける(ごちゃつき防止)
+      if (midi % 12 === 0) {
+        ctx.save();
+        ctx.translate(x * w + 3, h * 0.6);
+        if (mirror) ctx.scale(-1, 1); // 鏡文字の打ち消し
+        ctx.fillText(noteName(midi), 0, 0);
+        ctx.restore();
+      }
     }
   }
 
-  // 直前の打鍵: 押した音の位置(黄)と採用された指先(緑)
+  // 直前の打鍵: 押した音の位置(黄)と採用・記録された指先(緑)
   if (mark) {
-    ctx.strokeStyle = "#ffee58";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(mark.kx * w, 0);
-    ctx.lineTo(mark.kx * w, h);
-    ctx.stroke();
+    if (mark.kx !== null) {
+      ctx.strokeStyle = "#ffee58";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mark.kx * w, 0);
+      ctx.lineTo(mark.kx * w, h);
+      ctx.stroke();
+    }
     if (mark.tipX !== null && mark.tipY !== null) {
       ctx.strokeStyle = "#76ff03";
       ctx.lineWidth = 3;
@@ -314,9 +322,10 @@ export function CalibrationDebug() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     drawLandmarks(canvas, video, frame);
-    // キャリブレーション済みなら鍵盤位置のオーバーレイも描く(デバッグの見える化)
+    // 鍵盤位置・打鍵マーカーのオーバーレイ(デバッグの見える化)。
+    // 基準記録の段階(キャリブレーション未完成)でも、記録された指先の緑丸だけは描く
     const w = wizardRef.current;
-    if (w.calibration) {
+    if (w.calibration || w.lastMark) {
       drawCalibrationOverlay(canvas, w.calibration, w.lastMark, mirrorRef.current);
     }
   }, []);
@@ -361,8 +370,8 @@ export function CalibrationDebug() {
   const stepGuide: Record<WizardStep, string> = {
     setup:
       "手順1: 鍵盤全体がカメラに映るようにセッティングしてください(鍵盤が画面の下側になる向きで)。準備ができたら開始を押してください。",
-    low: "手順2: 低い方の基準鍵盤を 1 つ押してください(どの鍵盤でも構いません。手順3の鍵盤と 1 オクターブ以上離してください)。",
-    high: "手順3: 高い方の基準鍵盤を 1 つ押してください。",
+    low: "手順2: 低い方の基準鍵盤を 1 つ押してください(どの鍵盤でも構いません。手順3の鍵盤と 1 オクターブ以上離してください)。押す指だけを伸ばし、他の指は軽く浮かせると確実です。",
+    high: "手順3: 高い方の基準鍵盤を 1 つ押してください。押す指だけを伸ばし、他の指は軽く浮かせてください。緑の丸が「記録された指先」です。押した指と違う場所に付いたらやり直してください。",
     verify:
       "手順5: 確認です。映像に各鍵盤の推定位置(白線)が表示されます。白線の位置に指を置いて対応する音を押し、ズレが小さいことを確認してください。黄線=押した音の位置、緑丸=検出された指先です。問題なければ「キャリブレーション完了」を押してください。",
     done: "キャリブレーション完了。白線の鍵盤位置に指を置いて対応する音を押すと、押した指の推定結果が表示されます。",
