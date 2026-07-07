@@ -1,15 +1,19 @@
 // アプリ本体
-// P1/P2 時点では動作確認用のデバッグ画面を仮タブで切り替えて表示する。
+// P1〜P4 時点では動作確認用の画面を仮タブで切り替えて表示する。
 // S-01〜S-06 の正式な画面遷移は後続フェーズで実装する。
+// キャリブレーション結果は App が保持し、P3(ウィザード)→ P4(練習)へ受け渡す。
 import { useState } from "react";
 import { CalibrationDebug } from "./components/CalibrationDebug";
 import { CameraDebug } from "./components/CameraDebug";
 import { PracticeDebug } from "./components/PracticeDebug";
+import { PracticeScreen, type CalibrationInfo } from "./components/PracticeScreen";
 
-type DebugTab = "practice" | "camera" | "calibration";
+type DebugTab = "practice-p1" | "camera" | "calibration" | "practice";
 
 export default function App() {
   const [tab, setTab] = useState<DebugTab>("practice");
+  // キャリブレーション結果(F-03: メモリ内のみ保持。保存しない)
+  const [calibrationInfo, setCalibrationInfo] = useState<CalibrationInfo | null>(null);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: "8px 16px",
@@ -23,8 +27,8 @@ export default function App() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #666", marginBottom: 16 }}>
-        <button style={tabStyle(tab === "practice")} onClick={() => setTab("practice")}>
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #666", marginBottom: 16, flexWrap: "wrap" }}>
+        <button style={tabStyle(tab === "practice-p1")} onClick={() => setTab("practice-p1")}>
           P1: 判定エンジン確認
         </button>
         <button style={tabStyle(tab === "camera")} onClick={() => setTab("camera")}>
@@ -33,10 +37,20 @@ export default function App() {
         <button style={tabStyle(tab === "calibration")} onClick={() => setTab("calibration")}>
           P3: キャリブレーション・指特定
         </button>
+        <button style={tabStyle(tab === "practice")} onClick={() => setTab("practice")}>
+          P4: 練習
+        </button>
       </div>
-      {tab === "practice" && <PracticeDebug />}
+      {tab === "practice-p1" && <PracticeDebug />}
       {tab === "camera" && <CameraDebug />}
-      {tab === "calibration" && <CalibrationDebug />}
+      {tab === "calibration" && (
+        <CalibrationDebug
+          onCalibrated={(calibration, deviceId) =>
+            setCalibrationInfo({ calibration, deviceId })
+          }
+        />
+      )}
+      {tab === "practice" && <PracticeScreen calibrationInfo={calibrationInfo} />}
     </div>
   );
 }

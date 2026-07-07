@@ -29,6 +29,8 @@ function toErrorMessage(e: unknown): string {
 
 export function useHandCamera(
   onFrame: (frame: LandmarkFrame, video: HTMLVideoElement) => void,
+  /** 初期カメラのデバイス ID(キャリブレーション時と同じカメラで練習するために使う)。省略時は既定カメラ */
+  initialDeviceId?: string,
 ) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackerRef = useRef<HandTracker | null>(null);
@@ -103,7 +105,7 @@ export function useHandCamera(
         await tracker.init(); // モデル読み込み(初回は数秒かかる)
         if (cancelled) return;
         setDelegate(tracker.getDelegateUsed() ?? "");
-        await startCamera("");
+        await startCamera(initialDeviceId ?? "");
       } catch (e) {
         if (!cancelled) {
           setState("error");

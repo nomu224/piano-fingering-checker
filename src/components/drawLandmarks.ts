@@ -1,7 +1,10 @@
-// 手ランドマークのキャンバス描画(CameraDebug / CalibrationDebug で共用)
+// 手ランドマーク・キャリブレーションオーバーレイのキャンバス描画
+// (CameraDebug / CalibrationDebug / PracticeScreen で共用)
 // 座標は常に生映像基準で描く(ミラー表示は CSS 変換で行い、座標系に反転を持ち込まない)。
 
-import type { LandmarkFrame } from "../core/types";
+import { noteToX } from "../core/fingerEstimator";
+import type { KeyboardCalibration, LandmarkFrame } from "../core/types";
+import { noteName } from "../midi/virtualKeyboard";
 
 /** 手の骨格線(MediaPipe Hands の 21 点の接続関係) */
 const HAND_CONNECTIONS: [number, number][] = [
@@ -61,4 +64,89 @@ export function drawLandmarks(
       ctx.fill();
     });
   }
+}
+
+// ---- キャリブレーション結果のオーバーレイ(デバッグ・練習画面の見える化) ----
+
+/**
+ * 直前の打鍵のプレビュー表示用マーカー。
+ * kx = 押した音の推定鍵盤位置(不明なら null)、
+ * tipX/tipY = 採用・記録された指先(無ければ null)。
+ */
+export interface NoteOnMark {
+  kx: number | null;
+  tipX: number | null;
+  tipY: number | null;
+}
+
+/** 1 オクターブ内の白鍵の半音位置(鍵盤位置の白線描画用) */
+const WHITE_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
+
+/**
+ * キャリブレーション結果の見える化。
+ * - 白線: 各白鍵の推定位置(アプリが考えている鍵盤の場所)
+ * - 黄線: 直前に押した音の推定位置 / 緑丸: そのとき採用された指先
+ * ミラー表示時は canvas ごと CSS で反転されるため座標はそのままで良いが、
+ * 文字だけは鏡文字になるので反転を打ち消して描く。
+ */
+export function drawCalibrationOverlay(
+  canvas: HTMLCanvasElement,
+  calibration: KeyboardCalibration | null,
+  mark: NoteOnMark | null,
+  mirror: boolean,
+): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.save();
+
+  // 各白鍵の推定位置(キャリブレーション完了後のみ。画面内に入るものだけ)
+  if (calibration) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 1;
+    ctx.font = `${Math.max(12, Math.round(h * 0.035))}px sans-serif`;
+    for (
+      let midi = calibration.lowMidi - 24;
+      midi <= calibration.highMidi + 24;
+      midi++
+    ) {
+      if (!WHITE_SEMITONES.includes(midi % 12)) continue;
+      const x = noteToX(calibration, midi);
+      if (x < 0 || x > 1) continue;
+      ctx.beginPath();
+      ctx.moveTo(x * w, h * 0.55);
+      ctx.lineTo(x * w, h);
+      ctx.stroke();
+      // ド(C)にだけ音名ラベルを付ける(ごちゃつき防止)
+      if (midi % 12 === 0) {
+        ctx.save();
+        ctx.translate(x * w + 3, h * 0.6);
+        if (mirror) ctx.scale(-1, 1); // 鏡文字の打ち消し
+        ctx.fillText(noteName(midi), 0, 0);
+        ctx.restore();
+      }
+    }
+  }
+
+  // 直前の打鍵: 押した音の位置(黄)と採用・記録された指先(緑)
+  if (mark) {
+    if (mark.kx !== null) {
+      ctx.strokeStyle = "#ffee58";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(mark.kx * w, 0);
+      ctx.lineTo(mark.kx * w, h);
+      ctx.stroke();
+    }
+    if (mark.tipX !== null && mark.tipY !== null) {
+      ctx.strokeStyle = "#76ff03";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(mark.tipX * w, mark.tipY * h, 12, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
