@@ -100,12 +100,23 @@ function PracticeWithCamera({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markRef = useRef<NoteOnMark | null>(null);
 
+  // ミラー(左右反転)表示。CSS で表示だけ反転し、座標系には反転を持ち込まない(F-01)。
+  // 表示のみの変更なのでキャリブレーション・判定には影響しない
+  const [mirror, setMirror] = useState(false);
+  const mirrorRef = useRef(mirror);
+  mirrorRef.current = mirror;
+
   const onFrame = useCallback(
     (frame: LandmarkFrame, video: HTMLVideoElement) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       drawLandmarks(canvas, video, frame);
-      drawCalibrationOverlay(canvas, info.calibration, markRef.current, false);
+      drawCalibrationOverlay(
+        canvas,
+        info.calibration,
+        markRef.current,
+        mirrorRef.current,
+      );
     },
     [info.calibration],
   );
@@ -138,7 +149,26 @@ function PracticeWithCamera({
       {state === "initializing" && (
         <p style={{ color: "#ffb300" }}>カメラ初期化中…(手認識モデルの読み込みに数秒かかります)</p>
       )}
-      <div style={{ position: "relative", maxWidth: 480 }}>
+      {state === "running" && (
+        <label style={{ fontSize: 14, display: "inline-block", marginBottom: 4 }}>
+          <input
+            type="checkbox"
+            checked={mirror}
+            onChange={(e) => setMirror(e.target.checked)}
+          />{" "}
+          左右反転(ミラー)表示
+          <span style={{ fontSize: 12, color: "#777" }}>
+            (表示だけ反転します。判定・キャリブレーションには影響しません)
+          </span>
+        </label>
+      )}
+      <div
+        style={{
+          position: "relative",
+          maxWidth: 480,
+          transform: mirror ? "scaleX(-1)" : "none",
+        }}
+      >
         <video
           ref={videoRef}
           playsInline
