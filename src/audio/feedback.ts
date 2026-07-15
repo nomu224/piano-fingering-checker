@@ -2,7 +2,8 @@
 //
 // - ビープ A(運指ミス): 低め・ブザー的 → 矩形波 220Hz・約 150ms
 // - ビープ B(音ミス): 音色を変える → サイン波 880Hz・約 100ms
-// - 正解: 無音(クリック音の設定 F-07 は P5)
+// - クリック音(正解時。F-05「無音(または設定でクリック音)」)→ サイン波 1500Hz・約 30ms
+// - ON/OFF と音量は設定 F-07 から setEnabled / setVolume で反映する
 // 周波数・波形・長さは仕様に具体値が無いため耳で調整した値(必要なら変更可)。
 //
 // AudioContext はブラウザの自動再生制限のため、ユーザー操作(打鍵・ボタン)を
@@ -13,6 +14,20 @@ import { FEEDBACK_VOLUME } from "../core/constants";
 export class FeedbackSound {
   private ctx: AudioContext | null = null;
 
+  /** フィードバック音の ON/OFF(F-07) */
+  private enabled = true;
+
+  /** 音量 0〜1(F-07) */
+  private volume = FEEDBACK_VOLUME;
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
+  setVolume(volume: number): void {
+    this.volume = Math.min(1, Math.max(0, volume));
+  }
+
   /** 音を出す準備(初回のユーザー操作時に呼ばれる)。suspend 状態なら再開する */
   private ensureContext(): AudioContext {
     this.ctx ??= new AudioContext();
@@ -22,8 +37,9 @@ export class FeedbackSound {
     return this.ctx;
   }
 
-  /** ビープを 1 回鳴らす(内部共通) */
+  /** ビープを 1 回鳴らす(内部共通)。OFF のときは鳴らさない */
   private beep(type: OscillatorType, frequency: number, durationMs: number): void {
+    if (!this.enabled || this.volume <= 0) return;
     const ctx = this.ensureContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -35,8 +51,8 @@ export class FeedbackSound {
     const now = ctx.currentTime;
     const duration = durationMs / 1000;
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(FEEDBACK_VOLUME, now + 0.005);
-    gain.gain.setValueAtTime(FEEDBACK_VOLUME, now + duration - 0.02);
+    gain.gain.linearRampToValueAtTime(this.volume, now + 0.005);
+    gain.gain.setValueAtTime(this.volume, now + Math.max(0.005, duration - 0.02));
     gain.gain.linearRampToValueAtTime(0, now + duration);
 
     osc.connect(gain);
@@ -53,6 +69,11 @@ export class FeedbackSound {
   /** ビープ B: 音ミス(運指ミスと音色を変える。F-05) */
   noteMiss(): void {
     this.beep("sine", 880, 100);
+  }
+
+  /** クリック音: 正解時(設定 clickOnCorrect が ON のときだけ UI から呼ぶ。F-05) */
+  click(): void {
+    this.beep("sine", 1500, 30);
   }
 
   /** リソース解放(画面離脱時) */

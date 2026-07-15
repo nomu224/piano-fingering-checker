@@ -69,7 +69,7 @@ describe("運指判定(7.3)", () => {
 
     expect(entry.soundResult.type).toBe("correct");
     expect(entry.fingering).toMatchObject({ kind: "ok", expectedFinger: 1 });
-    expect(entry.feedback).toBe("none");
+    expect(entry.feedback).toBe("correct"); // クリック音(設定 ON 時)の対象
     expect(j.getCounts()).toMatchObject({ fingerMisses: 0, noteMisses: 0 });
   });
 
@@ -95,7 +95,7 @@ describe("運指判定(7.3)", () => {
       reason: "handNotDetected",
       treatedAsMiss: false,
     });
-    expect(entry.feedback).toBe("none");
+    expect(entry.feedback).toBe("correct"); // 音は正解なのでビープは鳴らさない
     expect(j.getCounts()).toMatchObject({ undetermined: 1, fingerMisses: 0 });
   });
 
@@ -127,7 +127,7 @@ describe("運指判定(7.3)", () => {
     const entry = j.handleNoteOn(60, 100, frameWithFinger(3, 60), CALIB);
 
     expect(entry.fingering).toEqual({ kind: "skipped", reason: "noFinger" });
-    expect(entry.feedback).toBe("none");
+    expect(entry.feedback).toBe("correct");
     expect(j.getCounts().undetermined).toBe(0);
   });
 
@@ -197,7 +197,7 @@ describe("判定ログ(F-05)", () => {
       eventIndex: 0,
       measure: 1,
       posInMeasure: 1, // 譜面上の位置
-      feedback: "none",
+      feedback: "correct",
     });
     expect(log[0].expectedNotes).toEqual([note(60, 1)]); // 期待値
 
@@ -236,6 +236,58 @@ describe("判定ログ(F-05)", () => {
     });
     expect(j.getCursor()).toBe(0);
     expect(j.isFinished()).toBe(false);
+  });
+});
+
+describe("設定(F-07)の反映", () => {
+  // 右手ド4(指1)+ 左手ド3(指5)の両手曲
+  const bothHandsSong = song([
+    [note(60, 1, "R"), note(48, 5, "L")],
+    [note(62, 2, "R")],
+  ]);
+
+  it('targetHands="R" のとき左手の note は運指判定をスキップ(判定不能に数えない)', () => {
+    const j = new PracticeJudge(bothHandsSong, { targetHands: "R" });
+    // 左手ド3 を(手が映っていないフレームで)弾いても判定不能にならない
+    const left = j.handleNoteOn(48, 100, EMPTY_FRAME, CALIB);
+    expect(left.fingering).toEqual({ kind: "skipped", reason: "handNotTarget" });
+    expect(left.feedback).toBe("correct");
+
+    // 右手ド4 は通常どおり運指判定される
+    const right = j.handleNoteOn(60, 200, frameWithFinger(2, 60), CALIB);
+    expect(right.fingering).toMatchObject({ kind: "miss", expectedFinger: 1 });
+    expect(j.getCounts()).toMatchObject({ fingerMisses: 1, undetermined: 0 });
+  });
+
+  it('targetHands="L" のときは右手がスキップされる', () => {
+    const j = new PracticeJudge(bothHandsSong, { targetHands: "L" });
+    const right = j.handleNoteOn(60, 100, frameWithFinger(2, 60), CALIB);
+    expect(right.fingering).toEqual({ kind: "skipped", reason: "handNotTarget" });
+    expect(j.getCounts().fingerMisses).toBe(0);
+  });
+
+  it("setTargetHands / setUndeterminedAsMiss で練習中に設定を変えられる(セッション維持)", () => {
+    const j = new PracticeJudge(song([[note(60, 1)], [note(62, 2)], [note(64, 3)]]));
+    j.handleNoteOn(60, 100, EMPTY_FRAME, CALIB); // 判定不能(無視)
+    expect(j.getCounts().fingerMisses).toBe(0);
+
+    j.setUndeterminedAsMiss(true);
+    j.handleNoteOn(62, 200, EMPTY_FRAME, CALIB); // 今度はミス扱い
+    expect(j.getCounts()).toMatchObject({ undetermined: 2, fingerMisses: 1 });
+    expect(j.getLog()).toHaveLength(2); // セッションは切れていない
+
+    j.setTargetHands("L"); // 右手を対象外に
+    const e = j.handleNoteOn(64, 300, EMPTY_FRAME, CALIB);
+    expect(e.fingering).toEqual({ kind: "skipped", reason: "handNotTarget" });
+  });
+
+  it("constructor に設定を渡した再生成でも設定が効く(曲切替時の適用漏れ防止)", () => {
+    const j = new PracticeJudge(song([[note(60, 1)]]), {
+      undeterminedAsMiss: true,
+      targetHands: "both",
+    });
+    j.handleNoteOn(60, 100, EMPTY_FRAME, CALIB);
+    expect(j.getCounts()).toMatchObject({ undetermined: 1, fingerMisses: 1 });
   });
 });
 

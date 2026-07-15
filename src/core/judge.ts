@@ -31,6 +31,11 @@ import type {
 export interface PracticeJudgeOptions {
   /** 判定不能をミス扱いにするか(F-07「判定の厳しさ」。省略時は既定値) */
   undeterminedAsMiss?: boolean;
+  /**
+   * 運指判定の対象の手(F-07)。省略時は両手。
+   * 音判定(スコアフォロー)は常に全 notes で進行する。
+   */
+  targetHands?: "both" | "R" | "L";
 }
 
 /**
@@ -44,7 +49,8 @@ export function firstEventIndexOfMeasure(song: Song, measure: number): number | 
 
 export class PracticeJudge {
   private readonly follower: ScoreFollower;
-  private readonly undeterminedAsMiss: boolean;
+  private undeterminedAsMiss: boolean;
+  private targetHands: "both" | "R" | "L";
 
   /** 判定ログ(F-05)。やり直し・途中開始で新しい練習セッションとしてクリアされる */
   private log: JudgmentEntry[] = [];
@@ -60,6 +66,17 @@ export class PracticeJudge {
     this.follower = new ScoreFollower(song);
     this.undeterminedAsMiss =
       options.undeterminedAsMiss ?? DEFAULT_UNDETERMINED_AS_MISS;
+    this.targetHands = options.targetHands ?? "both";
+  }
+
+  /** 判定の厳しさの変更(設定 S-06 から即反映。セッションは切らない) */
+  setUndeterminedAsMiss(value: boolean): void {
+    this.undeterminedAsMiss = value;
+  }
+
+  /** 運指判定の対象の手の変更(設定 S-06 から即反映。セッションは切らない) */
+  setTargetHands(value: "both" | "R" | "L"): void {
+    this.targetHands = value;
   }
 
   /**
@@ -149,15 +166,23 @@ export class PracticeJudge {
   ): { fingering: FingeringJudgment; feedback: JudgmentEntry["feedback"] } {
     // 譜面に指番号が無い音符は運指判定をスキップ(8.1 の finger: null)
     if (note.finger === null) {
-      return { fingering: { kind: "skipped", reason: "noFinger" }, feedback: "none" };
+      return { fingering: { kind: "skipped", reason: "noFinger" }, feedback: "correct" };
     }
     // 楽曲データの finger は 1〜5(仕様書 8.1)。変換スクリプト側で保証される
     const expectedFinger = note.finger as FingerNumber;
 
+    // 判定対象外の手(F-07)→ 運指判定をスキップ(判定不能には数えない)
+    if (this.targetHands !== "both" && note.hand !== this.targetHands) {
+      return {
+        fingering: { kind: "skipped", reason: "handNotTarget" },
+        feedback: "correct",
+      };
+    }
+
     // カメラなしモード(F-01)= キャリブレーション or フレームが無い → 音判定のみ。
     // 判定不能(handNotDetected)とは区別し、判定不能数にも数えない
     if (calibration === null || frame === null) {
-      return { fingering: { kind: "skipped", reason: "noCamera" }, feedback: "none" };
+      return { fingering: { kind: "skipped", reason: "noCamera" }, feedback: "correct" };
     }
 
     const estimated = estimateFinger(frame, note.hand, midi, calibration);
@@ -185,15 +210,15 @@ export class PracticeJudge {
           reason: estimated.reason,
           treatedAsMiss: false,
         },
-        feedback: "none",
+        feedback: "correct",
       };
     }
 
     if (estimated.finger === expectedFinger) {
-      // 運指 OK → 無音(正解のクリック音は F-07 の設定機能。P5)
+      // 運指 OK → 既定は無音。feedback "correct" は設定でクリック音を鳴らす対象(F-05)
       return {
         fingering: { kind: "ok", expectedFinger, estimated },
-        feedback: "none",
+        feedback: "correct",
       };
     }
 

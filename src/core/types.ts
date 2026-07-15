@@ -195,7 +195,8 @@ export type FingerEstimateResult =
  * - ok / miss: 推定が成立した場合(実測値=推定結果を含む)
  * - undetermined: 判定不能(7.2)。treatedAsMiss は「判定の厳しさ」設定(F-07。P4 は既定値)による
  * - skipped: 運指判定そのものを行わなかった場合。
- *   noFinger = 譜面に指番号が無い(8.1 の finger: null)/ noCamera = カメラなしモード(F-01)。
+ *   noFinger = 譜面に指番号が無い(8.1 の finger: null)/ noCamera = カメラなしモード(F-01)/
+ *   handNotTarget = 設定 F-07 の「判定対象の手」の対象外。
  *   ※ undetermined(判定不能数に数える)とは区別する
  * - notApplicable: 音ミス・弾き飛ばし救済・重複打鍵など、運指判定の対象外(7.3)
  */
@@ -211,7 +212,7 @@ export type FingeringJudgment =
       reason: "handNotDetected" | "tooFar" | "ambiguous";
       treatedAsMiss: boolean;
     }
-  | { kind: "skipped"; reason: "noFinger" | "noCamera" }
+  | { kind: "skipped"; reason: "noFinger" | "noCamera" | "handNotTarget" }
   | { kind: "notApplicable" };
 
 /**
@@ -233,10 +234,34 @@ export interface JudgmentEntry {
   soundResult: NoteOnResult;
   /** 運指判定の結果(実測値=推定指番号と信頼度を含む) */
   fingering: FingeringJudgment;
-  /** この打鍵で UI が鳴らすべきフィードバック音(F-05。core は音を出さない) */
-  feedback: "none" | "noteMiss" | "fingerMiss";
+  /**
+   * この打鍵で UI が鳴らすべきフィードバック音(F-05。core は音を出さない)。
+   * - correct: 音が正解だった打鍵(重複打鍵を除く)。設定でクリック音を鳴らす対象
+   * - noteMiss: ビープ B / fingerMiss: ビープ A / none: 無音(重複打鍵など)
+   */
+  feedback: "none" | "correct" | "noteMiss" | "fingerMiss";
   /** この打鍵で演奏が終了したか */
   finished: boolean;
+}
+
+/**
+ * 練習の設定(仕様書 F-07 + F-05 のクリック音)。
+ * メモリ内のみ保持(仕様に永続化の規定なし)。
+ */
+export interface PracticeSettings {
+  /** フィードバック音の ON/OFF */
+  feedbackEnabled: boolean;
+  /** フィードバック音の音量(0〜1) */
+  feedbackVolume: number;
+  /** 正解時にクリック音を鳴らす(F-05「正解: 無音(または設定でクリック音)」) */
+  clickOnCorrect: boolean;
+  /** 判定の厳しさ: 指の判定不能を「ミス扱い」にするか(false = 無視してカウントのみ) */
+  undeterminedAsMiss: boolean;
+  /**
+   * 運指判定の対象の手(F-07)。
+   * 音判定(スコアフォロー)は常に全 notes で進行する(対象外の手も弾かないと曲は進まない)。
+   */
+  targetHands: "both" | "R" | "L";
 }
 
 /** 練習中の集計(画面表示用。結果サマリー F-06 の本実装は P5) */

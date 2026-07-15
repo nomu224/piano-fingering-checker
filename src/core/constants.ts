@@ -4,6 +4,8 @@
 //    予備実験で調整するパラメータ(仕様書 7.1 / 7.2)。
 //    P3 で追加する指特定の閾値(0.6 半音間隔・0.25 半音間隔など)もここに集約する。
 
+import type { PracticeSettings } from "./types";
+
 /**
  * 弾き飛ばし救済(仕様書 7.1)の探索範囲 N。
  * 同一カーソル位置で 2 回連続音ミスが発生したとき、
@@ -68,5 +70,14 @@ export const CALIBRATION_RECOMMENDED_REF_DISTANCE = 12;
  */
 export const DEFAULT_UNDETERMINED_AS_MISS = false;
 
-/** フィードバック音の音量(0〜1)。F-07 で設定 UI 化するまでの既定値 */
+/** フィードバック音の音量(0〜1)の既定値 */
 export const FEEDBACK_VOLUME = 0.3;
+
+/** 練習の設定(F-07)の既定値。設定画面 S-06 で変更できる */
+export const DEFAULT_SETTINGS: PracticeSettings = {
+  feedbackEnabled: true,
+  feedbackVolume: FEEDBACK_VOLUME,
+  clickOnCorrect: false,
+  undeterminedAsMiss: DEFAULT_UNDETERMINED_AS_MISS,
+  targetHands: "both",
+};
