@@ -7,6 +7,8 @@ import { CalibrationDebug } from "./components/CalibrationDebug";
 import { CameraDebug } from "./components/CameraDebug";
 import { PracticeDebug } from "./components/PracticeDebug";
 import { PracticeScreen, type CalibrationInfo } from "./components/PracticeScreen";
+import { DEFAULT_SETTINGS } from "./core/constants";
+import type { PracticeSettings } from "./core/types";
 
 type DebugTab = "practice-p1" | "camera" | "calibration" | "practice";
 
@@ -14,6 +16,8 @@ export default function App() {
   const [tab, setTab] = useState<DebugTab>("practice");
   // キャリブレーション結果(F-03: メモリ内のみ保持。保存しない)
   const [calibrationInfo, setCalibrationInfo] = useState<CalibrationInfo | null>(null);
+  // 練習の設定(F-07: メモリ内のみ保持)
+  const [settings, setSettings] = useState<PracticeSettings>(DEFAULT_SETTINGS);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: "8px 16px",
@@ -50,7 +54,13 @@ export default function App() {
           }
         />
       )}
-      {tab === "practice" && <PracticeScreen calibrationInfo={calibrationInfo} />}
+      {tab === "practice" && (
+        <PracticeScreen
+          calibrationInfo={calibrationInfo}
+          settings={settings}
+          onChangeSettings={setSettings}
+        />
+      )}
     </div>
   );
 }

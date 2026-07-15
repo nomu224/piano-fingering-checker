@@ -25,6 +25,7 @@ import type {
   JudgmentEntry,
   KeyboardCalibration,
   LandmarkFrame,
+  PracticeSettings,
   Song,
 } from "../core/types";
 import { noteName, VirtualMidiKeyboard } from "../midi/virtualKeyboard";
@@ -34,6 +35,8 @@ import {
   drawLandmarks,
   type NoteOnMark,
 } from "./drawLandmarks";
+import { ResultScreen } from "./ResultScreen";
+import { SettingsModal } from "./SettingsModal";
 import { useHandCamera } from "./useHandCamera";
 import { VirtualKeyboard } from "./VirtualKeyboard";
 
@@ -48,11 +51,20 @@ const FINGERTIP_INDICES = [4, 8, 12, 16, 20] as const;
 
 interface Props {
   calibrationInfo: CalibrationInfo | null;
+  /** 練習の設定(F-07)。App が保持する */
+  settings: PracticeSettings;
+  onChangeSettings: (next: PracticeSettings) => void;
 }
 
-export function PracticeScreen({ calibrationInfo }: Props) {
+export function PracticeScreen({ calibrationInfo, settings, onChangeSettings }: Props) {
   if (calibrationInfo) {
-    return <PracticeWithCamera info={calibrationInfo} />;
+    return (
+      <PracticeWithCamera
+        info={calibrationInfo}
+        settings={settings}
+        onChangeSettings={onChangeSettings}
+      />
+    );
   }
   // カメラなし(音判定のみ)モード: F-01
   return (
@@ -60,6 +72,8 @@ export function PracticeScreen({ calibrationInfo }: Props) {
       calibration={null}
       getFrame={() => null}
       onMark={() => {}}
+      settings={settings}
+      onChangeSettings={onChangeSettings}
       cameraArea={
         <div style={{ background: "#3e3a26", padding: 12, borderRadius: 8, marginBottom: 12 }}>
           <strong style={{ color: "#ffd54f" }}>音判定のみモードで練習中</strong>
@@ -74,7 +88,15 @@ export function PracticeScreen({ calibrationInfo }: Props) {
 }
 
 /** カメラあり(運指判定つき)の練習。キャリブレーション時と同じカメラを使う */
-function PracticeWithCamera({ info }: { info: CalibrationInfo }) {
+function PracticeWithCamera({
+  info,
+  settings,
+  onChangeSettings,
+}: {
+  info: CalibrationInfo;
+  settings: PracticeSettings;
+  onChangeSettings: (next: PracticeSettings) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markRef = useRef<NoteOnMark | null>(null);
 
@@ -145,6 +167,8 @@ function PracticeWithCamera({ info }: { info: CalibrationInfo }) {
       onMark={(m) => {
         markRef.current = m;
       }}
+      settings={settings}
+      onChangeSettings={onChangeSettings}
       cameraArea={cameraArea}
     />
   );
@@ -159,11 +183,21 @@ interface CoreProps {
   getFrame: (timestampMs: number) => LandmarkFrame | null;
   /** 打鍵マーカーの通知(カメラプレビューのオーバーレイ用) */
   onMark: (mark: NoteOnMark | null) => void;
+  /** 練習の設定(F-07) */
+  settings: PracticeSettings;
+  onChangeSettings: (next: PracticeSettings) => void;
   /** カメラプレビュー or モード表示のバナー */
   cameraArea: ReactNode;
 }
 
-function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) {
+function PracticeCore({
+  calibration,
+  getFrame,
+  onMark,
+  settings,
+  onChangeSettings,
+  cameraArea,
+}: CoreProps) {
   const [song, setSong] = useState<Song>(songs[0]);
 
   // クラスインスタンスは ref に保持(再レンダリングで作り直さない)
@@ -172,11 +206,14 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
   const feedbackRef = useRef<FeedbackSound | null>(null);
   feedbackRef.current ??= new FeedbackSound();
 
-  // 曲が変わったら判定エンジンを作り直す
+  // 曲が変わったら判定エンジンを作り直す(現在の設定を引き継ぐ)
   const judgeRef = useRef<PracticeJudge | null>(null);
   const judgeSongRef = useRef<Song | null>(null);
   if (judgeRef.current === null || judgeSongRef.current !== song) {
-    judgeRef.current = new PracticeJudge(song);
+    judgeRef.current = new PracticeJudge(song, {
+      undeterminedAsMiss: settings.undeterminedAsMiss,
+      targetHands: settings.targetHands,
+    });
     judgeSongRef.current = song;
   }
 
@@ -184,6 +221,10 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
   const [paused, setPaused] = useState(false);
   const [message, setMessage] = useState("");
   const [measureInput, setMeasureInput] = useState("1");
+  // 結果画面(S-05)の表示(完走で自動遷移 or 中断ボタン)
+  const [showResult, setShowResult] = useState(false);
+  // 設定モーダル(S-06)の表示
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 判定エンジンの内部状態変更を画面に反映させるためのカウンタ
   const [, setVersion] = useState(0);
 
@@ -196,13 +237,25 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
   getFrameRef.current = getFrame;
   const onMarkRef = useRef(onMark);
   onMarkRef.current = onMark;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const showResultRef = useRef(showResult);
+  showResultRef.current = showResult;
+
+  // 設定の変更を judge / feedback に即反映(セッションは切らない)
+  useEffect(() => {
+    judgeRef.current?.setUndeterminedAsMiss(settings.undeterminedAsMiss);
+    judgeRef.current?.setTargetHands(settings.targetHands);
+    feedbackRef.current?.setEnabled(settings.feedbackEnabled);
+    feedbackRef.current?.setVolume(settings.feedbackVolume);
+  }, [settings]);
 
   // MIDI(MidiSource)の Note On → 判定 → フィードバック音
   useEffect(() => {
     const keyboard = keyboardRef.current!;
     return keyboard.addNoteOnListener(({ note, timestampMs }) => {
-      // 一時停止中の打鍵は無視(ログにも残さない)
-      if (pausedRef.current) return;
+      // 一時停止中・結果/設定表示中の打鍵は無視(ログにも残さない)
+      if (pausedRef.current || showResultRef.current) return;
       const judge = judgeRef.current!;
       // 演奏終了後の打鍵はセッションに含めない(やり直しで新セッション開始)
       if (judge.isFinished()) return;
@@ -216,11 +269,19 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
         feedbackRef.current!.noteMiss();
       } else if (entry.feedback === "fingerMiss") {
         feedbackRef.current!.fingerMiss();
+      } else if (entry.feedback === "correct" && settingsRef.current.clickOnCorrect) {
+        // 正解は既定で無音。設定 ON のときだけクリック音(F-05)
+        feedbackRef.current!.click();
       }
 
       onMarkRef.current(buildMark(entry, frame, calib));
       setLastEntry(entry);
       setVersion((v) => v + 1);
+
+      // 最終イベント達成 → 自動で結果画面へ(仕様書 7.1)
+      if (entry.finished) {
+        setShowResult(true);
+      }
     });
   }, []);
 
@@ -241,6 +302,7 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
     setLastEntry(null);
     setMessage("");
     setPaused(false);
+    setShowResult(false);
     onMark(null);
     setVersion((v) => v + 1);
   };
@@ -337,7 +399,7 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
         {view?.text ?? "鍵盤を押すと判定が始まります"}
       </div>
 
-      {/* 操作(F-05: 一時停止 / やり直し / 小節指定開始) */}
+      {/* 操作(F-05: 一時停止 / やり直し / 小節指定開始)+ 結果・設定 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
         <button onClick={() => setPaused((p) => !p)} style={buttonStyle} disabled={finished}>
           {paused ? "再開" : "一時停止"}
@@ -357,6 +419,12 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
         </label>
         <button onClick={startFromMeasure} style={buttonStyle}>
           開始
+        </button>
+        <button onClick={() => setShowResult(true)} style={buttonStyle}>
+          練習を終了して結果を見る
+        </button>
+        <button onClick={() => setSettingsOpen(true)} style={buttonStyle}>
+          ⚙ 設定
         </button>
         {message && <span style={{ color: "#ffb300", fontSize: 14 }}>{message}</span>}
       </div>
@@ -381,6 +449,28 @@ function PracticeCore({ calibration, getFrame, onMark, cameraArea }: CoreProps) 
 
       {/* バーチャル MIDI(実キーボードが無い間の入力手段) */}
       <VirtualKeyboard keyboard={keyboardRef.current} />
+
+      {/* 結果サマリー S-05(オーバーレイ表示。judge・カメラは生きたまま) */}
+      {showResult && (
+        <ResultScreen
+          song={song}
+          counts={counts}
+          log={judge.getLog()}
+          settings={settings}
+          finished={finished}
+          onRetry={restart}
+          onClose={() => setShowResult(false)}
+        />
+      )}
+
+      {/* 設定モーダル S-06 */}
+      {settingsOpen && (
+        <SettingsModal
+          settings={settings}
+          onChange={onChangeSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }
