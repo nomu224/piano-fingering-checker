@@ -8,5 +8,8 @@ dist/
 *.log
 .DS_Store
 
+# 練習結果のダウンロード JSON(実験データ。リポジトリには含めない)
+practice-log_*.json
+
 # 開発環境ローカル設定(絶対パスを含むため共有しない)
 .claude/launch.json
