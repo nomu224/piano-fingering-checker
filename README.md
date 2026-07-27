@@ -12,7 +12,9 @@
 - **P3 完了**: キャリブレーションウィザード(F-03)+ 指特定ロジック(7.2)+ 指特定デバッグ表示
 - **P4 完了**: 運指判定の統合(7.3)+ ビープ音(F-05)+ 練習画面(S-04)
 - **P5 完了**: 結果サマリー(F-06/S-05)+ 設定(F-07/S-06)+ MusicXML 変換スクリプト(8.2)
-- **残件**: バイエル曲データの投入(8.3。運指付き MusicXML の入手待ち)、P6(Android 対応 + デプロイ)
+- **P6 完了(コード)**: PWA 化(vite-plugin-pwa)+ スマホ縦持ちレイアウト + GitHub Pages デプロイ設定 + Android 確認手順書
+- **残件**: 実際の公開デプロイと Android 実機確認(→ [docs/android-check.md](docs/android-check.md))、
+  バイエル曲データの投入(8.3。運指付き MusicXML の入手待ち)、実 MIDI キーボード接続(機材入手後)
 
 ## セットアップ
 
@@ -144,6 +146,25 @@ Web カメラ(またはスマホの Web カメラ化アプリ)が必要です。
 変換の仕様: 白鍵・黒鍵の音高(♯♭対応)/ 和音・両手同時(大譜表の backup)を 1 イベントに集約 /
 staff 1=右手・staff 2=左手 / タイの 2 音目以降・休符・装飾音は除外 / 運指の無い音符は
 `finger: null`(運指判定をスキップ)。
+
+## スマホで使う / 公開する(P6)
+
+Android スマホ・タブレットで動かすには HTTPS 配信が必要です(カメラ・MIDI は HTTPS 必須)。
+手順とチェックリストは **[docs/android-check.md](docs/android-check.md)** にまとめています。
+
+- **GitHub Pages で公開**: このリポジトリを GitHub に push し、Settings → Pages の Source を
+  「GitHub Actions」にすると、`.github/workflows/deploy.yml` が自動でビルド&デプロイします
+  (base パスはリポジトリ名から自動導出)。公開されるのはアプリのページだけで、カメラ映像・練習データは
+  端末外に送信されません。コードを見せたくない場合はリポジトリを Private にしても Pages 配信は可能です
+- **PWA**: 配信後、Android Chrome の「ホーム画面に追加」でアプリのように起動できます
+  (オフライン対応は必須ではないため、手認識モデルはオンライン取得です)
+
+ローカルでビルドを試すには:
+
+```bash
+npm run build      # dist/ に本番ビルド(PWA の manifest と Service Worker を含む)
+npm run preview    # ビルド結果をローカルで確認
+```
 
 ## 同梱物のライセンス
 
