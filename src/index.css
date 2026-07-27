@@ -1,19 +1,47 @@
 /* 全体の基本スタイル
-   練習画面は「画面を見なくても使える」前提のため、
-   遠目でも分かる大きな表示を優先する(仕様書 9 章) */
+   スマホ縦持ちを基本レイアウトとしつつ、PC でも崩れないレスポンシブにする(仕様書 9 章)。
+   練習画面は「画面を見なくても使える」前提のため、遠目でも分かる大きな表示を優先する。 */
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  /* 横スクロールを出さない(スマホ縦持ちでレイアウトが破綻しないように) */
+  overflow-x: hidden;
+}
+
+body {
   font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   background: #1e1e2e;
   color: #eee;
+  /* iOS Safari 等でのタップ時ハイライトを抑える */
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   max-width: 900px;
   margin: 0 auto;
   padding: 16px;
+}
+
+/* スマホ縦持ち: 余白を詰めて画面を広く使う */
+@media (max-width: 600px) {
+  #root {
+    padding: 10px;
+  }
+}
+
+/* タップ操作しやすいように、ボタンと select の最小の当たり判定を確保する */
+button,
+select,
+input {
+  font-family: inherit;
+}
+
+@media (max-width: 600px) {
+  button {
+    min-height: 40px;
+  }
 }
