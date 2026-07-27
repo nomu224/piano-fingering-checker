@@ -1,0 +1,63 @@
+# GitHub Pages への自動デプロイ(仕様書 10 章: カメラ・MIDI は HTTPS 必須)
+#
+# main または master への push で発火。手動実行(workflow_dispatch)も可能。
+# base パス(サブパス配信)はリポジトリ名から自動導出するので、リポジトリ名が変わっても修正不要。
+#
+# 【初回のみ必要な設定】GitHub リポジトリの Settings → Pages →
+#   「Build and deployment」の Source を「GitHub Actions」に変更すること(docs/android-check.md 参照)。
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch: # Actions 画面から手動実行もできる
+
+# GitHub Pages へのデプロイに必要な権限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行を 1 つに制限(古いデプロイが新しいものを上書きしないように)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Node.js をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存パッケージをインストール
+        run: npm ci
+
+      - name: ビルド(base はリポジトリ名から自動導出)
+        run: npm run build
+        env:
+          # 例: リポジトリ名が piano-fingering-app なら /piano-fingering-app/ になる
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - name: Pages 用にビルド成果物をアップロード
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: GitHub Pages へデプロイ
+        id: deployment
+        uses: actions/deploy-pages@v4
