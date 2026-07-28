@@ -45,3 +45,22 @@ input {
     min-height: 40px;
   }
 }
+
+/* 練習画面: 横画面(タブレット横持ちなど)ではカメラと情報を左右に並べて、
+   縦スクロールを減らし横幅を活かす。縦画面・狭い画面では従来どおり縦積みのまま。 */
+@media (orientation: landscape) and (min-width: 800px) {
+  .practice-top {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .practice-cam {
+    flex: 0 0 auto;
+    max-width: 55%;
+  }
+  .practice-info {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+

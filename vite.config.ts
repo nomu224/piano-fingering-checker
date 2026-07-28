@@ -36,8 +36,9 @@ export default defineConfig({
         theme_color: "#1e1e2e",
         background_color: "#1e1e2e",
         display: "standalone",
-        // スマホ縦持ちを基本レイアウトとする(仕様書 9 章)
-        orientation: "portrait",
+        // スマホ縦持ちを基本にしつつ、横向き(タブレット)も許可する(仕様書 9 章の「レスポンシブ」)。
+        // 縦固定にするとタブレット横持ちで使えないため any にする
+        orientation: "any",
         icons: [
           {
             src: "icons/icon.svg",

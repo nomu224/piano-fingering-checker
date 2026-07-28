@@ -385,7 +385,10 @@ function PracticeCore({
         </span>
       </div>
 
-      {cameraArea}
+      {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
+      <div className="practice-top">
+        <div className="practice-cam">{cameraArea}</div>
+        <div className="practice-info">
 
       {/* 進行位置(遠目でも分かる大きな表示) */}
       <div style={{ margin: "8px 0" }}>
@@ -427,6 +430,8 @@ function PracticeCore({
         }}
       >
         {view?.text ?? "鍵盤を押すと判定が始まります"}
+      </div>
+        </div>
       </div>
 
       {/* 操作(F-05: 一時停止 / やり直し / 小節指定開始)+ 結果・設定 */}
