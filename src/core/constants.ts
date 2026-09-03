@@ -85,6 +85,45 @@ export const FEEDBACK_VOLUME = 0.3;
  */
 export const MIDI_TIMESTAMP_SANITY_MS = 1000;
 
+// ---- 参照音(仕様書 F-08)のパラメータ ----
+// MIDI キーボードは音源を持たない機種が多いため、押した音をアプリ側で鳴らす。
+// 音色はオシレーター(倍音を重ねる)+ ADSR で作る(音源ファイルは読み込まない)。
+
+/** 参照音 1 音あたりの音量(0〜1)。和音やビープと重なってもクリップしない控えめな値 */
+export const REFERENCE_TONE_VOLUME = 0.12;
+
+/** アタック(**単位: ミリ秒**)。F-08「速いアタック」 */
+export const REFERENCE_ATTACK_MS = 5;
+
+/**
+ * 減衰の時定数(**単位: ミリ秒**)。F-08「緩やかな減衰」。
+ * setTargetAtTime の時定数で、これに比例して指数的に減衰する。
+ */
+export const REFERENCE_DECAY_TIME_CONSTANT_MS = 900;
+
+/**
+ * 鍵盤を離してから消えるまでの時間(**単位: ミリ秒**)。実際のピアノのダンパーに相当。
+ * 短すぎるとスタッカートがブツ切れに聞こえるため 150〜300ms 程度にする。
+ */
+export const REFERENCE_RELEASE_MS = 200;
+
+/**
+ * 1 音の最大発音時間(**単位: 秒**)。
+ * Note Off が来ない経路(押しっぱなしでのタブ切替・オクターブシフト・USB 抜線など)でも
+ * 必ず音が止まるようにするための最後の砦。
+ */
+export const REFERENCE_TONE_MAX_SECONDS = 8;
+
+/**
+ * 重ねる倍音の構成。[倍率, 音量比] の配列。
+ * 基音 + 第2・第3倍音を上ほど小さく重ね、ピアノらしい響きに寄せる(F-08)。
+ */
+export const REFERENCE_HARMONICS: readonly (readonly [number, number])[] = [
+  [1, 1.0], // 基音
+  [2, 0.35], // 第2倍音(オクターブ上)
+  [3, 0.12], // 第3倍音
+];
+
 /** 練習の設定(F-07)の既定値。設定画面 S-06 で変更できる */
 export const DEFAULT_SETTINGS: PracticeSettings = {
   feedbackEnabled: true,
