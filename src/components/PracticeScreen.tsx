@@ -28,6 +28,7 @@ import type {
   PracticeSettings,
   Song,
 } from "../core/types";
+import type { NoteMessage } from "../midi/types";
 import { noteName, VirtualMidiKeyboard } from "../midi/virtualKeyboard";
 import { songs } from "../songs";
 import {
@@ -35,9 +36,11 @@ import {
   drawLandmarks,
   type NoteOnMark,
 } from "./drawLandmarks";
+import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { ResultScreen } from "./ResultScreen";
 import { SettingsModal } from "./SettingsModal";
 import { useHandCamera } from "./useHandCamera";
+import type { UseMidiDevices } from "./useMidiDevices";
 import { VirtualKeyboard } from "./VirtualKeyboard";
 
 /** キャリブレーション結果と、それを取ったカメラ(App が保持し P3 → P4 へ受け渡す) */
@@ -54,15 +57,23 @@ interface Props {
   /** 練習の設定(F-07)。App が保持する */
   settings: PracticeSettings;
   onChangeSettings: (next: PracticeSettings) => void;
+  /** MIDI デバイスの選択状態(F-01)。App が保持する */
+  midi: UseMidiDevices;
 }
 
-export function PracticeScreen({ calibrationInfo, settings, onChangeSettings }: Props) {
+export function PracticeScreen({
+  calibrationInfo,
+  settings,
+  onChangeSettings,
+  midi,
+}: Props) {
   if (calibrationInfo) {
     return (
       <PracticeWithCamera
         info={calibrationInfo}
         settings={settings}
         onChangeSettings={onChangeSettings}
+        midi={midi}
       />
     );
   }
@@ -74,6 +85,7 @@ export function PracticeScreen({ calibrationInfo, settings, onChangeSettings }: 
       onMark={() => {}}
       settings={settings}
       onChangeSettings={onChangeSettings}
+      midi={midi}
       cameraArea={
         <div style={{ background: "#3e3a26", padding: 12, borderRadius: 8, marginBottom: 12 }}>
           <strong style={{ color: "#ffd54f" }}>音判定のみモードで練習中</strong>
@@ -92,10 +104,12 @@ function PracticeWithCamera({
   info,
   settings,
   onChangeSettings,
+  midi,
 }: {
   info: CalibrationInfo;
   settings: PracticeSettings;
   onChangeSettings: (next: PracticeSettings) => void;
+  midi: UseMidiDevices;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markRef = useRef<NoteOnMark | null>(null);
@@ -199,6 +213,7 @@ function PracticeWithCamera({
       }}
       settings={settings}
       onChangeSettings={onChangeSettings}
+      midi={midi}
       cameraArea={cameraArea}
     />
   );
@@ -216,6 +231,8 @@ interface CoreProps {
   /** 練習の設定(F-07) */
   settings: PracticeSettings;
   onChangeSettings: (next: PracticeSettings) => void;
+  /** MIDI デバイスの選択状態(F-01) */
+  midi: UseMidiDevices;
   /** カメラプレビュー or モード表示のバナー */
   cameraArea: ReactNode;
 }
@@ -226,6 +243,7 @@ function PracticeCore({
   onMark,
   settings,
   onChangeSettings,
+  midi,
   cameraArea,
 }: CoreProps) {
   const [song, setSong] = useState<Song>(songs[0]);
@@ -280,10 +298,12 @@ function PracticeCore({
     feedbackRef.current?.setVolume(settings.feedbackVolume);
   }, [settings]);
 
-  // MIDI(MidiSource)の Note On → 判定 → フィードバック音
+  // Note On → 判定 → フィードバック音。
+  // バーチャル鍵盤と実 MIDI デバイスの両方を購読する(仕様書 F-02: 判定側は入力源を区別しない)。
+  // 実機を選んでいてもバーチャル鍵盤は使えるままにする(実機不調時の代替・テストのため)。
+  const midiInput = midi.midiInput;
   useEffect(() => {
-    const keyboard = keyboardRef.current!;
-    return keyboard.addNoteOnListener(({ note, timestampMs }) => {
+    const handleNoteOn = ({ note, timestampMs }: NoteMessage) => {
       // 一時停止中・結果/設定表示中の打鍵は無視(ログにも残さない)
       if (pausedRef.current || showResultRef.current) return;
       const judge = judgeRef.current!;
@@ -312,8 +332,15 @@ function PracticeCore({
       if (entry.finished) {
         setShowResult(true);
       }
-    });
-  }, []);
+    };
+
+    const offVirtual = keyboardRef.current!.addNoteOnListener(handleNoteOn);
+    const offDevice = midiInput.addNoteOnListener(handleNoteOn);
+    return () => {
+      offVirtual();
+      offDevice();
+    };
+  }, [midiInput]);
 
   // 画面離脱時に AudioContext を解放
   useEffect(() => {
@@ -384,6 +411,9 @@ function PracticeCore({
           {counts.undetermined}
         </span>
       </div>
+
+      {/* MIDI 機器の選択(F-01) */}
+      <MidiDeviceSelector midi={midi} />
 
       {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
       <div className="practice-top">

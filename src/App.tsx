@@ -7,6 +7,7 @@ import { CalibrationDebug } from "./components/CalibrationDebug";
 import { CameraDebug } from "./components/CameraDebug";
 import { PracticeDebug } from "./components/PracticeDebug";
 import { PracticeScreen, type CalibrationInfo } from "./components/PracticeScreen";
+import { useMidiDevices } from "./components/useMidiDevices";
 import { DEFAULT_SETTINGS } from "./core/constants";
 import type { PracticeSettings } from "./core/types";
 
@@ -18,6 +19,8 @@ export default function App() {
   const [calibrationInfo, setCalibrationInfo] = useState<CalibrationInfo | null>(null);
   // 練習の設定(F-07: メモリ内のみ保持)
   const [settings, setSettings] = useState<PracticeSettings>(DEFAULT_SETTINGS);
+  // MIDI デバイスの選択(F-01)。タブ切替や画面の再マウントで選択が消えないよう App が保持する
+  const midi = useMidiDevices();
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: "8px 16px",
@@ -49,6 +52,7 @@ export default function App() {
       {tab === "camera" && <CameraDebug />}
       {tab === "calibration" && (
         <CalibrationDebug
+          midi={midi}
           onCalibrated={(calibration, deviceId) =>
             setCalibrationInfo({ calibration, deviceId })
           }
@@ -59,6 +63,7 @@ export default function App() {
           calibrationInfo={calibrationInfo}
           settings={settings}
           onChangeSettings={setSettings}
+          midi={midi}
         />
       )}
     </div>

@@ -19,6 +19,7 @@ import type {
   KeyboardCalibration,
   LandmarkFrame,
 } from "../core/types";
+import type { NoteMessage } from "../midi/types";
 import { noteName, VirtualMidiKeyboard } from "../midi/virtualKeyboard";
 import {
   buildCalibration,
@@ -31,7 +32,9 @@ import {
   drawLandmarks,
   type NoteOnMark,
 } from "./drawLandmarks";
+import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { useHandCamera } from "./useHandCamera";
+import type { UseMidiDevices } from "./useMidiDevices";
 import { VirtualKeyboard } from "./VirtualKeyboard";
 
 // ---- ウィザードの状態管理(純粋な reducer。Note On を受けてステップを進める) ----
@@ -231,9 +234,11 @@ interface Props {
    * P4 の練習画面が同じカメラ・同じ対応表で運指判定するために使う。
    */
   onCalibrated?: (calibration: KeyboardCalibration, deviceId: string) => void;
+  /** MIDI デバイスの選択状態(F-01)。App が保持する */
+  midi: UseMidiDevices;
 }
 
-export function CalibrationDebug({ onCalibrated }: Props) {
+export function CalibrationDebug({ onCalibrated, midi }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keyboardRef = useRef<VirtualMidiKeyboard | null>(null);
   keyboardRef.current ??= new VirtualMidiKeyboard();
@@ -270,16 +275,22 @@ export function CalibrationDebug({ onCalibrated }: Props) {
     fps,
   } = useHandCamera(onFrame);
 
-  // MIDI(MidiSource インターフェース)の Note On を購読。
+  // Note On を購読(バーチャル鍵盤と実 MIDI デバイスの両方。仕様書 F-02: 入力源を区別しない)。
   // リングバッファから Note On 時刻に最も近いフレームを取り出して渡す(仕様書 7.2 の重要注記)
+  const midiInput = midi.midiInput;
   useEffect(() => {
-    const keyboard = keyboardRef.current!;
-    return keyboard.addNoteOnListener(({ note, timestampMs }) => {
+    const handleNoteOn = ({ note, timestampMs }: NoteMessage) => {
       const frame =
         trackerRef.current?.history.getNearestFrame(timestampMs) ?? null;
       dispatch({ type: "noteOn", midi: note, frame });
-    });
-  }, [trackerRef]);
+    };
+    const offVirtual = keyboardRef.current!.addNoteOnListener(handleNoteOn);
+    const offDevice = midiInput.addNoteOnListener(handleNoteOn);
+    return () => {
+      offVirtual();
+      offDevice();
+    };
+  }, [trackerRef, midiInput]);
 
   // カメラ・ミラー切替でキャリブレーションを破棄(F-03: 再キャリブレーション必須)
   const isFirstRunRef = useRef(true);
@@ -472,6 +483,9 @@ export function CalibrationDebug({ onCalibrated }: Props) {
       </p>
 
       {/* バーチャル MIDI(実キーボードが無くても動作確認できる) */}
+      {/* MIDI 機器の選択(F-01)。実キーボードでもキャリブレーションできる */}
+      <MidiDeviceSelector midi={midi} />
+
       <VirtualKeyboard keyboard={keyboardRef.current} />
     </div>
   );
