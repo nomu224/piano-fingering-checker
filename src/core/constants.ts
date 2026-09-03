@@ -73,6 +73,18 @@ export const DEFAULT_UNDETERMINED_AS_MISS = false;
 /** フィードバック音の音量(0〜1)の既定値 */
 export const FEEDBACK_VOLUME = 0.3;
 
+/**
+ * 実 MIDI デバイスのタイムスタンプの妥当範囲(**単位: ミリ秒**)。
+ *
+ * MIDIMessageEvent.timeStamp は performance.now() と同一基準のはずだが、
+ * 万一かけ離れた値が届くと、ランドマーク履歴の最近傍検索(仕様書 7.2)が
+ * 常に最古フレームを掴み、エラーも出さずに指特定が誤り続ける。
+ * 現在時刻との差がこの値を超えたら異常とみなし、現在時刻で代用する。
+ *
+ * ランドマーク履歴は 5 フレーム(20〜30fps で 170〜250ms 相当)なので 1000ms なら十分な余裕がある。
+ */
+export const MIDI_TIMESTAMP_SANITY_MS = 1000;
+
 /** 練習の設定(F-07)の既定値。設定画面 S-06 で変更できる */
 export const DEFAULT_SETTINGS: PracticeSettings = {
   feedbackEnabled: true,
