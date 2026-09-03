@@ -12,6 +12,7 @@ import {
   CALIBRATION_MAX_DEVIATION_SEMITONES,
   CALIBRATION_RECOMMENDED_REF_DISTANCE,
 } from "../core/constants";
+import { getReferenceTone } from "../audio/referenceTone";
 import { estimateFinger, noteToX } from "../core/fingerEstimator";
 import type {
   FingerEstimateResult,
@@ -279,16 +280,27 @@ export function CalibrationDebug({ onCalibrated, midi }: Props) {
   // リングバッファから Note On 時刻に最も近いフレームを取り出して渡す(仕様書 7.2 の重要注記)
   const midiInput = midi.midiInput;
   useEffect(() => {
+    const referenceTone = getReferenceTone();
+
     const handleNoteOn = ({ note, timestampMs }: NoteMessage) => {
+      // 【F-08】参照音は判定(ここではウィザードの処理)より先に鳴らす
+      referenceTone.noteOn(note);
       const frame =
         trackerRef.current?.history.getNearestFrame(timestampMs) ?? null;
       dispatch({ type: "noteOn", midi: note, frame });
     };
-    const offVirtual = keyboardRef.current!.addNoteOnListener(handleNoteOn);
-    const offDevice = midiInput.addNoteOnListener(handleNoteOn);
+    const handleNoteOff = ({ note }: NoteMessage) => referenceTone.noteOff(note);
+
+    const keyboard = keyboardRef.current!;
+    const offs = [
+      keyboard.addNoteOnListener(handleNoteOn),
+      midiInput.addNoteOnListener(handleNoteOn),
+      keyboard.addNoteOffListener(handleNoteOff),
+      midiInput.addNoteOffListener(handleNoteOff),
+    ];
     return () => {
-      offVirtual();
-      offDevice();
+      offs.forEach((off) => off());
+      referenceTone.stopAll();
     };
   }, [trackerRef, midiInput]);
 

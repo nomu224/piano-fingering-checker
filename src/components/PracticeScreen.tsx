@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { FeedbackSound } from "../audio/feedback";
+import { getReferenceTone } from "../audio/referenceTone";
 import { noteToX } from "../core/fingerEstimator";
 import { PracticeJudge } from "../core/judge";
 import type {
@@ -303,8 +304,14 @@ function PracticeCore({
   // 実機を選んでいてもバーチャル鍵盤は使えるままにする(実機不調時の代替・テストのため)。
   const midiInput = midi.midiInput;
   useEffect(() => {
+    const referenceTone = getReferenceTone();
+
     const handleNoteOn = ({ note, timestampMs }: NoteMessage) => {
-      // 一時停止中・結果/設定表示中の打鍵は無視(ログにも残さない)
+      // 【F-08】参照音は判定より先に、かつ下の早期 return より前に鳴らす。
+      // 一時停止中でも鳴らす(一時停止は「判定を止める」機能であって楽器を黙らせる機能ではない)。
+      referenceTone.noteOn(note);
+
+      // 一時停止中・結果表示中の打鍵は判定しない(ログにも残さない)
       if (pausedRef.current || showResultRef.current) return;
       const judge = judgeRef.current!;
       // 演奏終了後の打鍵はセッションに含めない(やり直しで新セッション開始)
@@ -334,18 +341,24 @@ function PracticeCore({
       }
     };
 
-    const offVirtual = keyboardRef.current!.addNoteOnListener(handleNoteOn);
-    const offDevice = midiInput.addNoteOnListener(handleNoteOn);
-    return () => {
-      offVirtual();
-      offDevice();
-    };
+    // 鍵盤を離したら参照音を止める(実際のピアノのダンパーと同じ)
+    const handleNoteOff = ({ note }: NoteMessage) => referenceTone.noteOff(note);
+
+    const keyboard = keyboardRef.current!;
+    const offs = [
+      keyboard.addNoteOnListener(handleNoteOn),
+      midiInput.addNoteOnListener(handleNoteOn),
+      keyboard.addNoteOffListener(handleNoteOff),
+      midiInput.addNoteOffListener(handleNoteOff),
+    ];
+    return () => offs.forEach((off) => off());
   }, [midiInput]);
 
-  // 画面離脱時に AudioContext を解放
+  // 画面離脱時に鳴っている参照音を止める。
+  // ※ AudioContext はアプリ共有(F-08)なので閉じてはいけない。
+  //   閉じると resume できず、以後アプリ全体が無音になる。
   useEffect(() => {
-    const feedback = feedbackRef.current;
-    return () => feedback?.close();
+    return () => getReferenceTone().stopAll();
   }, []);
 
   const judge = judgeRef.current;

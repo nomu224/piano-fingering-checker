@@ -10,9 +10,9 @@
 // きっかけに遅延生成する。
 
 import { FEEDBACK_VOLUME } from "../core/constants";
+import { getAudioContext, resumeAudio } from "./audioContext";
 
 export class FeedbackSound {
-  private ctx: AudioContext | null = null;
 
   /** フィードバック音の ON/OFF(F-07) */
   private enabled = true;
@@ -28,13 +28,13 @@ export class FeedbackSound {
     this.volume = Math.min(1, Math.max(0, volume));
   }
 
-  /** 音を出す準備(初回のユーザー操作時に呼ばれる)。suspend 状態なら再開する */
+  /**
+   * 音を出す準備。アプリ共有の AudioContext を使う(F-08: AudioContext は 1 個だけ)。
+   * suspend 状態なら再開を試みる。
+   */
   private ensureContext(): AudioContext {
-    this.ctx ??= new AudioContext();
-    if (this.ctx.state === "suspended") {
-      void this.ctx.resume();
-    }
-    return this.ctx;
+    resumeAudio();
+    return getAudioContext();
   }
 
   /** ビープを 1 回鳴らす(内部共通)。OFF のときは鳴らさない */
@@ -76,9 +76,13 @@ export class FeedbackSound {
     this.beep("sine", 1500, 30);
   }
 
-  /** リソース解放(画面離脱時) */
+  /**
+   * 【何もしない】AudioContext はアプリ共有(F-08: 1 個だけ)なので、
+   * この画面の都合で閉じてはいけない。
+   * 閉じた AudioContext は resume できず、以後アプリ全体が無音になるため。
+   * (以前は自前の AudioContext を閉じていた。互換のためメソッドは残す)
+   */
   close(): void {
-    void this.ctx?.close();
-    this.ctx = null;
+    // 共有 AudioContext は閉じない
   }
 }
