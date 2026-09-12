@@ -18,7 +18,7 @@ function toErrorMessage(e: unknown): string {
       return "カメラの使用が許可されていません。ブラウザのアドレスバーのカメラアイコンから許可して、再試行してください。";
     }
     if (e.name === "NotFoundError" || e.name === "OverconstrainedError") {
-      return "カメラが見つかりません。Web カメラを接続するか、スマホの Web カメラ化アプリを起動してから再試行してください。";
+      return "カメラが見つかりません。カメラを接続(または内蔵カメラを有効に)してから再試行してください。";
     }
     if (e.name === "NotReadableError") {
       return "カメラを起動できません。他のアプリがカメラを使用中の可能性があります。";
@@ -83,7 +83,7 @@ export function useHandCamera(
       setState("error");
       setErrorMessage(toErrorMessage(e));
       // 起動に失敗しても、別のカメラを選び直せるように一覧だけは更新を試みる
-      // (例: iVCam などの仮想カメラが既定になっていて応答しない場合、
+      // (例: 仮想カメラが既定になっていて応答しない場合、
       //  ここで一覧が出れば内蔵カメラに切り替えられる)
       try {
         const all = await navigator.mediaDevices.enumerateDevices();
