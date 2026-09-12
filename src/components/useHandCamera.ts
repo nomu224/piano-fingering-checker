@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LandmarkFrame } from "../core/types";
 import { HandTracker } from "../vision/handTracker";
+import { pickRealCamera } from "./cameraSelection";
 
 /** カメラ解像度(まずは控えめな値。解像度設定 UI は P5 で対応) */
 const VIDEO_CONSTRAINTS = { width: { ideal: 640 }, height: { ideal: 480 } };
@@ -49,8 +50,13 @@ export function useHandCamera(
   const [fps, setFps] = useState(0);
   const [delegate, setDelegate] = useState("");
 
-  /** カメラを起動する(切替時は旧ストリームを必ず停止してから) */
-  const startCamera = useCallback(async (deviceId: string) => {
+  /**
+   * カメラを起動する(切替時は旧ストリームを必ず停止してから)。
+   * @param deviceId 空文字ならブラウザの既定カメラ
+   * @param allowAutoSwitch 既定カメラが仮想カメラだったとき、実カメラへ自動で切り替えてよいか
+   *   (起動時のみ true。ユーザーが明示的に選んだ場合は尊重する)
+   */
+  const startCamera = useCallback(async (deviceId: string, allowAutoSwitch = false) => {
     setState("initializing");
     setErrorMessage("");
     try {
@@ -74,8 +80,20 @@ export function useHandCamera(
 
       // 権限取得後はデバイスのラベルが見えるようになるので一覧を更新する
       const all = await navigator.mediaDevices.enumerateDevices();
-      setDevices(all.filter((d) => d.kind === "videoinput"));
+      const cameras = all.filter((d) => d.kind === "videoinput");
+      setDevices(cameras);
       const settings = stream.getVideoTracks()[0]?.getSettings();
+
+      // ブラウザの既定が仮想カメラ(iVCam など)だと何も映らないことがあるため、
+      // 起動時に限り、実カメラがあればそちらへ自動で切り替える(F-01 のカメラ選択の補助)
+      if (allowAutoSwitch) {
+        const better = pickRealCamera(cameras, settings?.deviceId);
+        if (better) {
+          await startCamera(better);
+          return;
+        }
+      }
+
       if (settings?.deviceId) setSelectedDeviceId(settings.deviceId);
 
       setState("running");
@@ -105,7 +123,8 @@ export function useHandCamera(
         await tracker.init(); // モデル読み込み(初回は数秒かかる)
         if (cancelled) return;
         setDelegate(tracker.getDelegateUsed() ?? "");
-        await startCamera(initialDeviceId ?? "");
+        // 起動時のみ、既定が仮想カメラなら実カメラへ自動で切り替える
+        await startCamera(initialDeviceId ?? "", initialDeviceId === undefined);
       } catch (e) {
         if (!cancelled) {
           setState("error");
