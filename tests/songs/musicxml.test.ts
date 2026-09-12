@@ -1,6 +1,7 @@
-// MusicXML → 楽曲 JSON 変換スクリプト(仕様書 8.2)のユニットテスト
+// MusicXML → 楽曲 JSON 変換(仕様書 8.2 / F-09)のユニットテスト
+// CLI とアプリが共有する変換ロジックのテスト(src/songs/musicxml.ts)
 import { describe, expect, it } from "vitest";
-import { convertMusicXml } from "../../tools/musicxml2json.mjs";
+import { convertMusicXml } from "../../src/songs/musicxml";
 
 /** テスト用 MusicXML を組み立てるヘルパー */
 function score(measures: string): string {
@@ -199,5 +200,22 @@ describe("convertMusicXml: 除外と警告", () => {
 
   it("score-partwise でない XML はエラー", () => {
     expect(() => convertMusicXml("<foo/>")).toThrow();
+  });
+});
+
+// ---- 実ファイルでの回帰テスト(F-09: CLI とアプリで結果が食い違わないことの確認) ----
+
+describe("実ファイル(かっこう)の変換", () => {
+  it("CLI で作った kakkou.json と events が一致する", async () => {
+    // 開発者が MuseScore で作った実際の楽譜。CLI 経由で作った JSON と突き合わせることで、
+    // 共有ロジックが同じ結果を出していることを確認する(id/title は CLI 引数由来なので対象外)
+    const fs = await import("node:fs");
+    const xml = fs.readFileSync("gakufu/kakkou.musicxml", "utf-8");
+    const expected = JSON.parse(fs.readFileSync("src/songs/kakkou.json", "utf-8"));
+
+    const { song } = convertMusicXml(xml, { id: "kakkou", title: "かっこう", difficulty: 1 });
+
+    expect(song.events).toEqual(expected.events);
+    expect(song).toEqual(expected);
   });
 });

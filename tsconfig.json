@@ -20,6 +20,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+    /* tools/ の CLI が Node の型ストリップで .ts を直接読むため、
+       消去できない構文(enum / namespace など)を禁止する */
+    "erasableSyntaxOnly": true,
+
     "types": ["vite/client"]
   },
   "include": ["src", "tests", "vite.config.ts"]
