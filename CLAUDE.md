@@ -66,6 +66,8 @@
 
 ## 進捗ログ
 
+- 2026-09-13: 楽譜ファイルの追加機能を実装(F-09。仕様追加は開発者要望)。アプリ内で運指付き MusicXML を読み込み→曲一覧に追加→localStorage 保存。**変換ロジックは src/songs/musicxml.ts に一本化し CLI とアプリで共有**(fast-xml-parser を dependencies へ、CLI はラッパー化、Node 型ストリップで .ts を import。engines>=22.18 / erasableSyntaxOnly)。ID/曲名の一意化・スキーマ検証・.mxl/MIDI の判別案内。ユニットテスト計 116 件
+
 - 2026-07-05: P1 完了(Vite+React+TS 雛形 / バーチャル MIDI F-02 / スコアフォロー 7.1・音判定 / テスト曲 JSON / ユニットテスト 19 件)
 - 2026-07-06: P2 完了(カメラ選択・プレビュー F-01 / MediaPipe Hands 両手 21 点 / ランドマーク描画 / 履歴リングバッファ 7.2)
 - 2026-07-06: handedness の実カメラ検証 OK(左手=水色/右手=オレンジで一致。読み替え不要、SWAP_HANDEDNESS=false で確定)

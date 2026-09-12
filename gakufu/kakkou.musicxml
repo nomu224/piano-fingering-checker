@@ -820,15 +820,15 @@
         </note>
       </measure>
     <measure number="12" width="161.62">
-      <note default-x="12.5" default-y="15">
+      <note default-x="12.5" default-y="-15">
         <pitch>
-          <step>B</step>
+          <step>C</step>
           <octave>5</octave>
           </pitch>
         <duration>3</duration>
         <voice>1</voice>
         <type>half</type>
-        <dot default-x="30.5" default-y="15"/>
+        <dot default-x="30.5" default-y="-15"/>
         <stem>down</stem>
         <staff>1</staff>
         </note>

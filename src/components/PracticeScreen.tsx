@@ -31,7 +31,8 @@ import type {
 } from "../core/types";
 import type { NoteMessage } from "../midi/types";
 import { noteName, VirtualMidiKeyboard } from "../midi/virtualKeyboard";
-import { songs } from "../songs";
+import { getAllSongs } from "../songs";
+import { isUserSong } from "../songs/userSongs";
 import {
   drawCalibrationOverlay,
   drawLandmarks,
@@ -39,6 +40,7 @@ import {
 } from "./drawLandmarks";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { ResultScreen } from "./ResultScreen";
+import { SongImport } from "./SongImport";
 import { SettingsModal } from "./SettingsModal";
 import { useHandCamera } from "./useHandCamera";
 import type { UseMidiDevices } from "./useMidiDevices";
@@ -247,7 +249,10 @@ function PracticeCore({
   midi,
   cameraArea,
 }: CoreProps) {
-  const [song, setSong] = useState<Song>(songs[0]);
+  // 曲一覧は state に持つ。getAllSongs() を毎描画で呼ぶと曲オブジェクトの参照が毎回変わり、
+  // 判定エンジンが作り直されて練習の進行が消えるため、追加・削除のときだけ作り直す
+  const [songList, setSongList] = useState<Song[]>(() => getAllSongs());
+  const [song, setSong] = useState<Song>(songList[0]);
 
   // クラスインスタンスは ref に保持(再レンダリングで作り直さない)
   const keyboardRef = useRef<VirtualMidiKeyboard | null>(null);
@@ -367,6 +372,36 @@ function PracticeCore({
   const counts = judge.getCounts();
   const view = lastEntry ? judgmentView(lastEntry) : null;
 
+  /** 曲を切り替えるときの共通リセット(曲の追加・削除でも同じ状態に戻す) */
+  const switchSong = (next: Song) => {
+    setSong(next);
+    setLastEntry(null);
+    setMessage("");
+    setPaused(false);
+    setShowResult(false);
+    onMark(null);
+  };
+
+  /** 曲を追加したとき: 一覧を作り直し、その曲を選択する */
+  const handleSongAdded = (added: Song) => {
+    const next = getAllSongs();
+    setSongList(next);
+    switchSong(next.find((s) => s.id === added.id) ?? added);
+  };
+
+  /**
+   * 曲を削除したとき: 一覧を作り直す。
+   * 選択中の曲を消した場合は先頭の曲に移す
+   * (そうしないと選択欄が空になり、削除済みの曲で判定が動き続ける)
+   */
+  const handleSongRemoved = (removedId: string) => {
+    const next = getAllSongs();
+    setSongList(next);
+    if (song.id === removedId) {
+      switchSong(next[0]);
+    }
+  };
+
   const restart = () => {
     judge.restart();
     setLastEntry(null);
@@ -401,18 +436,12 @@ function PracticeCore({
           <select
             value={song.id}
             onChange={(e) => {
-              const next = songs.find((s) => s.id === e.target.value);
-              if (next) {
-                setSong(next);
-                setLastEntry(null);
-                setMessage("");
-                setPaused(false);
-                onMark(null);
-              }
+              const next = songList.find((s) => s.id === e.target.value);
+              if (next) switchSong(next);
             }}
             style={{ fontSize: 14, padding: 4 }}
           >
-            {songs.map((s) => (
+            {songList.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.title}
               </option>
@@ -423,6 +452,17 @@ function PracticeCore({
           打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} / 判定不能{" "}
           {counts.undetermined}
         </span>
+      </div>
+
+      {/* 楽譜ファイルの追加(F-09) */}
+      <div style={{ marginBottom: 8 }}>
+        <SongImport
+          allSongs={songList}
+          selectedSong={song}
+          selectedIsUserSong={isUserSong(song)}
+          onAdded={handleSongAdded}
+          onRemoved={handleSongRemoved}
+        />
       </div>
 
       {/* MIDI 機器の選択(F-01) */}

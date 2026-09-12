@@ -28,6 +28,13 @@ export interface ConvertMeta {
   difficulty?: number;
 }
 
+/**
+ * 変換処理が原因を特定できたエラー。
+ * メッセージは利用者にそのまま見せてよい日本語にしてある。
+ * (XML パーサー内部の英語エラーと区別するために型を分ける)
+ */
+export class MusicXmlConvertError extends Error {}
+
 export interface ConvertResult {
   song: Song;
   warnings: string[];
@@ -145,7 +152,7 @@ export function convertMusicXml(
 
   const root = doc.find((n) => n["score-partwise"] !== undefined);
   if (!root) {
-    throw new Error(
+    throw new MusicXmlConvertError(
       "score-partwise が見つかりません(対応形式は非圧縮 MusicXML。.mxl は非対応)",
     );
   }
@@ -153,7 +160,7 @@ export function convertMusicXml(
   const warnings: string[] = [];
   const parts = childrenByTag(root, "part");
   if (parts.length === 0) {
-    throw new Error("part がありません");
+    throw new MusicXmlConvertError("part がありません");
   }
   if (parts.length > 1) {
     warnings.push(
@@ -330,7 +337,7 @@ export function convertMusicXml(
   }
 
   if (events.length === 0) {
-    throw new Error("音符が 1 つも見つかりませんでした");
+    throw new MusicXmlConvertError("音符が 1 つも見つかりませんでした");
   }
   if (graceSkipped > 0) {
     warnings.push(

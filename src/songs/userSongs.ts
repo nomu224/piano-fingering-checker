@@ -6,7 +6,7 @@
 // 【注意】localStorage の中身はユーザーが書き換えられるため、読み込み時に必ず形を検証する。
 // hand や finger が壊れていると判定エンジン(運指判定)が静かに誤動作するため。
 
-import type { Hand, Note, ScoreEvent, Song } from "../core/types";
+import type { Note, ScoreEvent, Song } from "../core/types";
 
 const STORAGE_KEY = "piano-fingering-checker:user-songs";
 
