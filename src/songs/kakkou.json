@@ -1,0 +1,379 @@
+{
+  "id": "kakkou",
+  "title": "かっこう",
+  "difficulty": 1,
+  "events": [
+    {
+      "index": 0,
+      "measure": 1,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 79,
+          "finger": 5,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "measure": 1,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "measure": 2,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 79,
+          "finger": 5,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "measure": 2,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "measure": 3,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        },
+        {
+          "midi": 67,
+          "finger": 1,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "measure": 3,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 72,
+          "finger": 1,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "measure": 3,
+      "posInMeasure": 3,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "measure": 4,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 72,
+          "finger": 1,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "measure": 5,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        },
+        {
+          "midi": 67,
+          "finger": 1,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "measure": 5,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 10,
+      "measure": 5,
+      "posInMeasure": 3,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "measure": 6,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 77,
+          "finger": 4,
+          "hand": "R"
+        },
+        {
+          "midi": 67,
+          "finger": 1,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 12,
+      "measure": 6,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "measure": 7,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 14,
+      "measure": 7,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 15,
+      "measure": 7,
+      "posInMeasure": 3,
+      "notes": [
+        {
+          "midi": 77,
+          "finger": 4,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 16,
+      "measure": 8,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 79,
+          "finger": 5,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 17,
+      "measure": 8,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 18,
+      "measure": 9,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 79,
+          "finger": 5,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 19,
+      "measure": 9,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 20,
+      "measure": 10,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 79,
+          "finger": 5,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 21,
+      "measure": 10,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 22,
+      "measure": 11,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 77,
+          "finger": 4,
+          "hand": "R"
+        },
+        {
+          "midi": 67,
+          "finger": 1,
+          "hand": "L"
+        }
+      ]
+    },
+    {
+      "index": 23,
+      "measure": 11,
+      "posInMeasure": 2,
+      "notes": [
+        {
+          "midi": 76,
+          "finger": 3,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 24,
+      "measure": 11,
+      "posInMeasure": 3,
+      "notes": [
+        {
+          "midi": 74,
+          "finger": 2,
+          "hand": "R"
+        }
+      ]
+    },
+    {
+      "index": 25,
+      "measure": 12,
+      "posInMeasure": 1,
+      "notes": [
+        {
+          "midi": 83,
+          "finger": null,
+          "hand": "R"
+        },
+        {
+          "midi": 60,
+          "finger": 5,
+          "hand": "L"
+        }
+      ]
+    }
+  ]
+}
