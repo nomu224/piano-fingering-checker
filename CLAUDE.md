@@ -66,8 +66,6 @@
 
 ## 進捗ログ
 
-- 2026-09-13: 楽譜ファイルの追加機能を実装(F-09。仕様追加は開発者要望)。アプリ内で運指付き MusicXML を読み込み→曲一覧に追加→localStorage 保存。**変換ロジックは src/songs/musicxml.ts に一本化し CLI とアプリで共有**(fast-xml-parser を dependencies へ、CLI はラッパー化、Node 型ストリップで .ts を import。engines>=22.18 / erasableSyntaxOnly)。ID/曲名の一意化・スキーマ検証・.mxl/MIDI の判別案内。ユニットテスト計 116 件
-
 - 2026-07-05: P1 完了(Vite+React+TS 雛形 / バーチャル MIDI F-02 / スコアフォロー 7.1・音判定 / テスト曲 JSON / ユニットテスト 19 件)
 - 2026-07-06: P2 完了(カメラ選択・プレビュー F-01 / MediaPipe Hands 両手 21 点 / ランドマーク描画 / 履歴リングバッファ 7.2)
 - 2026-07-06: handedness の実カメラ検証 OK(左手=水色/右手=オレンジで一致。読み替え不要、SWAP_HANDEDNESS=false で確定)
@@ -78,3 +76,4 @@
 - 2026-09-03: 参照音を実装(F-08。仕様追加は開発者要望。MIDIキーボードに音源が無く練習にならないため)。共有AudioContext(1個のみ)/倍音+ADSR/ポリフォニック/判定より先に発音/Note Offで停止/鳴りっぱなし対策(最大発音時間・blur・visibilitychange)。ユニットテスト計 99 件
 - 2026-09-03: 実 MIDI 入力を実装(F-01: Web MIDI API 直接使用・デバイス一覧/選択・権限誘導・接続ガイド・抜き差し追従 / タイムスタンプ健全性チェック MIDI_TIMESTAMP_SANITY_MS)。バーチャル鍵盤と両方購読。ユニットテスト計 94 件。※ 実キーボードでの実演奏確認は開発者に依頼中
 - 2026-07-15: P6 コード完了(PWA化 vite-plugin-pwa / スマホ縦持ちレイアウト 9章 / GitHub Pages デプロイ用 Actions ワークフロー 10章 / Android確認手順書 docs/android-check.md)。base はリポジトリ名から自動導出。実際の公開デプロイ・Android実機確認・実MIDI接続は開発者の準備/機材待ち(完了条件はバーチャルMIDI+スマホカメラで全機能動作とする解釈で合意)
+- 2026-09-13: 楽譜ファイルの追加機能を実装(F-09。仕様追加は開発者要望)。アプリ内で運指付き MusicXML を読み込み→曲一覧に追加→localStorage 保存。**変換ロジックは src/songs/musicxml.ts に一本化し CLI とアプリで共有**(fast-xml-parser を dependencies へ、CLI はラッパー化、Node 型ストリップで .ts を import。engines>=22.18 / erasableSyntaxOnly)。ID/曲名の一意化・スキーマ検証・.mxl/MIDI の判別案内。ユニットテスト計 116 件
