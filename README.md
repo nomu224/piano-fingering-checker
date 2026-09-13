@@ -157,7 +157,7 @@ PC の Web カメラが必要です(タブレットで確認する場合は内�
 
    ```ts
    import beyer08Json from "./beyer-08.json";
-   export const builtinSongs: Song[] = [doremi, kakkou, beyer08Json as unknown as Song];
+   export const builtinSongs: Song[] = [doremi, kakkou, londonBridge, beyer08Json as unknown as Song];
    ```
 
 5. `npm run dev` で起動すると練習画面の曲選択に表示される
@@ -207,7 +207,7 @@ Android スマホ・タブレットで動かすには HTTPS 配信が必要で�
 - **GitHub Pages で公開**: このリポジトリを GitHub に push し、Settings → Pages の Source を
   「GitHub Actions」にすると、`.github/workflows/deploy.yml` が自動でビルド&デプロイします
   (base パスはリポジトリ名から自動導出)。公開されるのはアプリのページだけで、カメラ映像・練習データは
-  端末外に送信されません。コードを見せたくない場合はリポジトリを Private にしても Pages 配信は可能です
+  端末外に送信されません。※ 無料プランでは、Pages で公開するにはリポジトリを **Public** にする必要があります(Private にすると公開サイトが止まります。Private での公開は有料プラン)
 - **PWA**: 配信後、Android Chrome の「ホーム画面に追加」でアプリのように起動できます
   (オフライン対応は必須ではないため、手認識モデルはオンライン取得です)
 
@@ -232,12 +232,14 @@ npm run preview    # ビルド結果をローカルで確認
 public/
   mediapipe/   MediaPipe の WASM ランタイムと手認識モデル(自前配信)
 src/
-  core/        判定エンジン(スコアフォロー等。テスト対象)
-  midi/        MIDI 入力(バーチャル MIDI / 共通インターフェース)
-  vision/      手認識(MediaPipe ラッパー / ランドマーク履歴リングバッファ)
-  songs/       楽曲 JSON(仕様書 8.1 スキーマ)
-  components/  React コンポーネント
-tests/
-  core/        Vitest ユニットテスト(スコアフォロー)
-  vision/      Vitest ユニットテスト(リングバッファ)
+  core/        判定エンジン(スコアフォロー・指特定・運指判定。テスト対象)
+  midi/        MIDI 入力(バーチャル鍵盤 / 実 MIDI デバイス / 共通インターフェース)
+  vision/      手認識(MediaPipe ラッパー / ランドマーク履歴 / キャリブレーション計算)
+  audio/       音(ビープ / 参照音 / 共有 AudioContext)
+  songs/       楽曲 JSON・MusicXML 変換・追加曲の保存
+  components/  React コンポーネント(画面)
+tools/
+  musicxml2json.mjs  MusicXML → JSON 変換コマンド(変換本体は src/songs/musicxml.ts)
+gakufu/        元の楽譜ファイル(MusicXML)
+tests/         Vitest ユニットテスト(core / vision / midi / audio / songs / components)
 ```
