@@ -8,15 +8,17 @@
 import type { Song } from "../core/types";
 import doremiJson from "./doremi.json";
 import kakkouJson from "./kakkou.json";
+import londonBridgeJson from "./london-bridge.json";
 import { loadUserSongs } from "./userSongs";
 
 // JSON import は hand が string 型に推論されるため、Song 型へキャストする。
 // スキーマの正しさは変換スクリプトと手書きデータのレビューで担保する。
 export const doremi = doremiJson as unknown as Song;
 export const kakkou = kakkouJson as unknown as Song;
+export const londonBridge = londonBridgeJson as unknown as Song;
 
 /** 内蔵曲(リポジトリに含まれる曲) */
-export const builtinSongs: Song[] = [doremi, kakkou];
+export const builtinSongs: Song[] = [doremi, kakkou, londonBridge];
 
 /**
  * 内蔵曲 + 追加曲をまとめて返す(楽曲選択 F-04 / F-09)。

@@ -219,3 +219,21 @@ describe("実ファイル(かっこう)の変換", () => {
     expect(song).toEqual(expected);
   });
 });
+
+describe("実ファイル(ロンドン橋)の変換", () => {
+  it("内蔵曲 london-bridge.json と一致する(元の楽譜と JSON のずれを検出)", async () => {
+    const fs = await import("node:fs");
+    const xml = fs.readFileSync("gakufu/ロンドン橋.musicxml", "utf-8");
+    const expected = JSON.parse(fs.readFileSync("src/songs/london-bridge.json", "utf-8"));
+
+    const { song, warnings } = convertMusicXml(xml, {
+      id: "london-bridge",
+      title: "ロンドン橋",
+      difficulty: 1,
+    });
+
+    expect(song).toEqual(expected);
+    // すべての音符に運指が付いている楽譜なので警告は出ない
+    expect(warnings).toEqual([]);
+  });
+});
