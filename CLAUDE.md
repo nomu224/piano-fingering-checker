@@ -79,3 +79,4 @@
 - 2026-09-03: 実 MIDI 入力を実装(F-01: Web MIDI API 直接使用・デバイス一覧/選択・権限誘導・接続ガイド・抜き差し追従 / タイムスタンプ健全性チェック MIDI_TIMESTAMP_SANITY_MS)。バーチャル鍵盤と両方購読。ユニットテスト計 94 件。※ 実キーボードでの実演奏確認は開発者に依頼中
 - 2026-07-15: P6 コード完了(PWA化 vite-plugin-pwa / スマホ縦持ちレイアウト 9章 / GitHub Pages デプロイ用 Actions ワークフロー 10章 / Android確認手順書 docs/android-check.md)。base はリポジトリ名から自動導出。実際の公開デプロイ・Android実機確認・実MIDI接続は開発者の準備/機材待ち(完了条件はバーチャルMIDI+スマホカメラで全機能動作とする解釈で合意)
 - 2026-09-13: 楽譜ファイルの追加機能を実装(F-09。仕様追加は開発者要望)。アプリ内で運指付き MusicXML を読み込み→曲一覧に追加→localStorage 保存。**変換ロジックは src/songs/musicxml.ts に一本化し CLI とアプリで共有**(fast-xml-parser を dependencies へ、CLI はラッパー化、Node 型ストリップで .ts を import。engines>=22.18 / erasableSyntaxOnly)。ID/曲名の一意化・スキーマ検証・.mxl/MIDI の判別案内。ユニットテスト計 116 件
+- 2026-09-13: Android タブレットの公開サイト(GitHub Pages)で、内蔵曲「かっこう」「ロンドン橋」の練習が動作することを開発者が確認。内蔵曲に「ロンドン橋」を追加。デザイン変更前のしおり before-design-2026-09-13 を作成し GitHub に保管(いつでもこの時点に戻せる)
