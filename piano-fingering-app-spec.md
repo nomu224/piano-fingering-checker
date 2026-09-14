@@ -83,10 +83,10 @@ KORG microKEY2 Air-61(61 鍵、Bluetooth MIDI + USB MIDI 両対応)。ただし*
 
 接続方法の注意:
 
-- **Bluetooth のペアリングは OS 側で行う**(Android の設定、または KORG BLE-MIDI ドライバ等)。ペアリング済みであれば Web MIDI API からは USB と同じ「MIDI 入力デバイス」として見えるため、**アプリ側に Bluetooth 固有の実装は不要**
-- Android: OS 標準で BLE-MIDI に対応。ペアリング後 Chrome の Web MIDI に現れる
+- **Android では、OS の Bluetooth 設定でペアリングしても Web MIDI API には現れない**。Android は、どこかのアプリが BLE-MIDI 機器を MIDI 機器として明示的に開いている間だけ、その機器を他のアプリに公開する(開いたアプリが閉じると見えなくなる)。そのため **Android では Web Bluetooth API でキーボードに直接接続し、BLE-MIDI のデータをアプリ内で読み取る**(F-10)
+- Windows / Mac では、OS 側でペアリング済み(または USB 接続)の機器を Web MIDI API で使う
 - Windows での開発時: Windows は BLE-MIDI のブラウザ連携が不安定なことがあるため、**PC 開発中は USB ケーブル接続を推奨**(Air は USB でも使える)
-- セットアップ画面(F-01)に「キーボードが一覧に出ない場合は OS の Bluetooth 設定でペアリングを確認」というガイド文を表示すること
+- セットアップ画面(F-01)に「(Windows / Mac で)キーボードが一覧に出ない場合は OS の Bluetooth 設定でペアリングを確認」「Android では『Bluetooth で接続』(F-10)を使う」というガイド文を表示すること
 
 ---
 
@@ -124,7 +124,7 @@ KORG microKEY2 Air-61(61 鍵、Bluetooth MIDI + USB MIDI 両対応)。ただし*
 | ビルド | Vite + TypeScript | |
 | UI | React | 状態管理は useState/useReducer で十分。外部状態管理ライブラリ不要 |
 | 手認識 | MediaPipe Hands (`@mediapipe/tasks-vision` の HandLandmarker) | numHands: 2、GPU delegate 優先 |
-| MIDI | Web MIDI API(標準 API 直接使用) | ラッパーライブラリ不要 |
+| MIDI | Web MIDI API(標準 API 直接使用)+ Web Bluetooth API(Android の Bluetooth MIDI 用。F-10) | ラッパーライブラリ不要。BLE-MIDI データの読み取りも自前で実装する |
 | 音 | Web Audio API | ビープ音と参照音の生成のみ(音源ファイルは読み込まない) |
 | PWA | vite-plugin-pwa | オフライン動作は必須ではない。ホーム画面追加ができれば十分 |
 | テスト | Vitest | 判定エンジンなど純ロジック部分のみユニットテスト対象 |
@@ -139,7 +139,7 @@ KORG microKEY2 Air-61(61 鍵、Bluetooth MIDI + USB MIDI 両対応)。ただし*
 - カメラの選択・プレビュー表示
 - **映像の左右反転(ミラー)切り替え**を設ける。デフォルトは反転なし(=カメラが見たままの映像)とし、内部処理(ランドマーク座標・handedness)は常にこの生映像基準で統一する。プレビュー表示だけを反転する実装にし、座標系には反転を持ち込まないこと
 - **「カメラなしで開始(音判定のみモード)」ボタン**を設ける。この場合キャリブレーション(S-02)をスキップして楽曲選択へ進み、練習中は運指判定を行わず音判定のみとする(P1 の動作確認およびカメラ環境がない場合の利用のため)
-- MIDI 入力デバイスの一覧表示・選択(未接続時は「バーチャル MIDI」を選択可能)
+- MIDI 入力デバイスの一覧表示・選択(未接続時は「バーチャル MIDI」を選択可能)。Bluetooth MIDI キーボードは「Bluetooth で接続」から接続できる(F-10)
 - 権限リクエストの誘導(カメラ / MIDI とも)
 
 ### F-02 バーチャル MIDI(デバッグ機能)
@@ -208,6 +208,20 @@ MIDI キーボードは音源を持たない機種が多く、音が鳴らない
 - 変換時の警告(運指の無い音符の数など)を画面に表示する
 - 読み込めないファイルは分かりやすいエラーを表示する
 - **MIDI ファイルは対象外**(2.2 のとおり、運指情報を持てないため)
+
+### F-10 Bluetooth MIDI キーボードの直接接続
+
+Android では OS のペアリングだけでは Bluetooth MIDI キーボードが Web MIDI API に現れない(3.1)ため、
+アプリが Web Bluetooth API でキーボードに直接接続する。
+
+- 「Bluetooth で接続」ボタン → ブラウザの機器選択画面で、BLE-MIDI 機器(MIDI サービスを持つ機器)を選ぶ
+- 受信した BLE-MIDI パケットをアプリ内で解析して Note On / Note Off を取り出す
+  (BLE-MIDI 仕様のヘッダ・タイムスタンプ・ランニングステータス・リアルタイムメッセージの混在に対応する)
+- 実 MIDI デバイス・バーチャル鍵盤と**同じ入力インターフェースで判定エンジンに渡す**(F-02 と同じく、判定エンジンは入力源を区別しない)
+- 接続が切れたら「切断中」と表示し、同じ画面を開いている間は機器を選び直さずに再接続できる
+- ブラウザの制約で、**アプリを開き直すたびに機器選択が必要**(以前許可した機器に自動接続する API は、Chrome では既定で使えないため)
+- Web Bluetooth に対応しないブラウザでは、Bluetooth 接続ボタンの代わりに非対応の案内を出す
+- 外部ライブラリは使わない(5 章)
 
 ---
 
@@ -404,6 +418,8 @@ tests/
 ---
 
 ## 変更履歴
+
+- 2026-09-14: **3.1 の誤りを訂正し、F-10 Bluetooth MIDI キーボードの直接接続を追加**(開発者要望)。理由: Android タブレットで Bluetooth 接続したキーボードが Web MIDI API に現れなかった。調査の結果、Android は OS のペアリングだけでは BLE-MIDI 機器をブラウザに公開しないことが分かり、「ペアリング後 Chrome の Web MIDI に現れる」「アプリ側に Bluetooth 固有の実装は不要」という 3.1 の前提が事実と違っていた。あわせて 3.1 のガイド文、5 章の MIDI の欄、F-01 を更新。
 
 - 2026-09-13: 1.3 開発時の環境を実態に合わせて更新。Android タブレットと MIDI キーボードを入手したため、実機確認は**タブレット内蔵カメラ**で行う方針に変更(PC のカメラをスマホで代用する方式は使わない)。
 
