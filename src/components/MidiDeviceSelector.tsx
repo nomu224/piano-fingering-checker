@@ -85,8 +85,9 @@ export function MidiDeviceSelector({ midi }: Props) {
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "#999" }}>
           キーボードが一覧に出ない場合は、「再検索」を押してください。
           Bluetooth の場合は OS の Bluetooth 設定でペアリングを確認してください。
-          Android で USB ケーブルを使う場合は、通知から USB の用途を「MIDI」にしてください。
-          Windows では Bluetooth 接続が不安定なことがあるため、USB ケーブル接続を推奨します。
+          ただし Android では、ペアリングしただけではブラウザから見えないことがあります。
+          確実につなぐには、データ転送に対応した USB ケーブル(タブレットには OTG 変換アダプタ)を使ってください。
+          Windows でも Bluetooth 接続が不安定なことがあるため、USB ケーブル接続を推奨します。
         </p>
       )}
 
