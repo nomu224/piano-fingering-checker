@@ -2,11 +2,13 @@
 //
 // Web MIDI API を「標準 API のまま直接」使用する(仕様書 5 章: ラッパーライブラリ不要)。
 // 外部ライブラリは一切使わない。
+// USB 接続と、Windows / Mac で OS 側がつないだ Bluetooth 機器はここで受ける。
+// Android の Bluetooth キーボードは Web MIDI に現れないため、bleMidiInput.ts で受ける(仕様書 F-10)。
 //
 // バーチャル鍵盤(virtualKeyboard.ts)と同じ MidiSource インターフェースを実装するため、
 // 判定エンジン側は入力源を区別しない(仕様書 F-02)。
 
-import { MIDI_TIMESTAMP_SANITY_MS } from "../core/constants";
+import { sanitizeTimestamp } from "./timestamp";
 import type { MidiSource, NoteHandler, NoteMessage } from "./types";
 
 /** MIDI メッセージの解析結果 */
@@ -117,21 +119,10 @@ export class MidiDeviceInput implements MidiSource {
     }
   }
 
-  /**
-   * タイムスタンプの正常性チェック(仕様書 7.2 の精度に直結)。
-   *
-   * MIDIMessageEvent.timeStamp は performance.now() と同一基準のはずだが、
-   * 万一かけ離れた値(epoch 基準など)が来ると、ランドマーク履歴の最近傍検索が
-   * 常に最古フレームを掴み、エラーも出さずに指特定が誤り続ける。
-   * そのため妥当な範囲外なら現在時刻にフォールバックする。
-   */
+  /** タイムスタンプの正常性チェック(仕様書 7.2 の精度に直結。中身は timestamp.ts) */
   private sanitizeTimestamp(raw: number): number {
-    const now = performance.now();
-    if (Number.isFinite(raw) && raw > 0 && Math.abs(raw - now) < MIDI_TIMESTAMP_SANITY_MS) {
-      this.lastTimestampDelta = raw - now;
-      return raw;
-    }
-    this.lastTimestampDelta = 0;
-    return now;
+    const { timestampMs, delta } = sanitizeTimestamp(raw, performance.now());
+    this.lastTimestampDelta = delta;
+    return timestampMs;
   }
 }
