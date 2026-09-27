@@ -1,8 +1,10 @@
-// MIDI 入力デバイスの選択 UI(仕様書 F-01 / 3.1)
+// MIDI 入力デバイスの選択 UI(仕様書 F-01 / F-10 / 3.1)
 //
 // - デバイスの一覧表示・選択(未接続時は「バーチャル鍵盤」を選択可能)
 // - 権限リクエストの誘導、拒否時のエラーと再試行(仕様書 10 章)
-// - Bluetooth ペアリングのガイド文(仕様書 3.1。ペアリング自体は OS 側で行う)
+// - Bluetooth キーボードは「Bluetooth で接続」からアプリが直接つなぐ(仕様書 F-10)。
+//   Android では OS のペアリングだけではブラウザに機器が現れないため、
+//   この部分は Web MIDI の許可状態とは関係なく、いつでも使えるように表示する
 // - つながらないときの原因調べ用に、ブラウザが報告している機器の状態を表示する
 
 import { portDisplayName } from "./midiPortList";
@@ -13,10 +15,12 @@ interface Props {
 }
 
 export function MidiDeviceSelector({ midi }: Props) {
-  const { status, errorMessage, devices, selectedId, isSelectedConnected, diagnostics } =
+  const { status, errorMessage, devices, selectedId, isSelectedConnected, diagnostics, bluetooth } =
     midi;
   const usingRealDevice = selectedId !== VIRTUAL_DEVICE_ID;
   const hasUsableDevice = devices.some((d) => d.connected);
+  // 一度つないだ機器があるときは、ボタンの意味が「選び直す」に変わる
+  const hasChosenDevice = bluetooth.status === "connected" || bluetooth.status === "disconnected";
 
   return (
     <div
@@ -80,14 +84,67 @@ export function MidiDeviceSelector({ midi }: Props) {
         </div>
       )}
 
-      {/* 接続ガイド(仕様書 3.1) */}
+      {/* Bluetooth キーボードの直接接続(仕様書 F-10)。Web MIDI の許可状態とは無関係に表示する */}
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #3b3b52" }}>
+        {bluetooth.supported ? (
+          <>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={bluetooth.connect}
+                disabled={bluetooth.status === "connecting"}
+                style={bluetooth.status === "connecting" ? disabledButtonStyle : buttonStyle}
+              >
+                {hasChosenDevice ? "別の機器を選ぶ" : "Bluetooth で接続"}
+              </button>
+
+              {bluetooth.status === "connecting" && (
+                <span style={{ color: "#ffb300" }}>接続中…(キーボードの電源を確認)</span>
+              )}
+
+              {bluetooth.status === "connected" && (
+                <span style={{ color: "#8bc34a" }}>
+                  Bluetooth: {bluetooth.deviceName} に接続中
+                </span>
+              )}
+
+              {bluetooth.status === "disconnected" && (
+                <>
+                  <span style={{ color: "#ffb300" }}>
+                    Bluetooth: {bluetooth.deviceName} が切断中
+                  </span>
+                  <button onClick={bluetooth.reconnect} style={buttonStyle}>
+                    再接続
+                  </button>
+                </>
+              )}
+            </div>
+
+            {bluetooth.status === "error" && (
+              <p style={{ margin: "6px 0 0", color: "#ff8a80" }}>{bluetooth.errorMessage}</p>
+            )}
+
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#999" }}>
+              タブレット(Android)で Bluetooth キーボードを使うときは、上の「Bluetooth で接続」を押し、
+              出てくる一覧からキーボードを選んでください(OS のペアリングだけでは、
+              ブラウザからキーボードが見えません)。
+              アプリを開き直すたびに選び直しが必要です。
+              一覧に出ないときは、キーボードの電源が入っているか、
+              ほかの端末やアプリにつながっていないかを確認してください。
+            </p>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: 12, color: "#999" }}>
+            このブラウザは Bluetooth での直接接続に対応していません(Android では Chrome をお使いください)。
+          </p>
+        )}
+      </div>
+
+      {/* Windows / Mac 向けの接続ガイド(仕様書 3.1)。従来どおり、許可を得たあとに表示する */}
       {status === "granted" && (
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "#999" }}>
-          キーボードが一覧に出ない場合は、「再検索」を押してください。
-          Bluetooth の場合は OS の Bluetooth 設定でペアリングを確認してください。
-          ただし Android では、ペアリングしただけではブラウザから見えないことがあります。
-          確実につなぐには、データ転送に対応した USB ケーブル(タブレットには OTG 変換アダプタ)を使ってください。
-          Windows でも Bluetooth 接続が不安定なことがあるため、USB ケーブル接続を推奨します。
+          Windows / Mac でキーボードが一覧に出ない場合は、「再検索」を押すか、
+          OS の Bluetooth 設定でペアリングを確認してください。
+          Windows では Bluetooth 接続が不安定なことがあるため、USB ケーブル接続を推奨します。
         </p>
       )}
 
@@ -136,4 +193,11 @@ const buttonStyle: React.CSSProperties = {
   border: "1px solid #666",
   borderRadius: 6,
   cursor: "pointer",
+};
+
+/** 接続中は二重に押せないようにする */
+const disabledButtonStyle: React.CSSProperties = {
+  ...buttonStyle,
+  opacity: 0.5,
+  cursor: "default",
 };

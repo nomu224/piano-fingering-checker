@@ -4,6 +4,8 @@
 // (タブ切替やキャリブレーション完了で画面が再マウントされても選択が消えないようにするため)
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BleMidiInput, type BleMidiState } from "../midi/bleMidiInput";
+import { CompositeMidiSource } from "../midi/compositeMidiSource";
 import { MidiDeviceInput } from "../midi/midiInput";
 import {
   buildDeviceList,
@@ -90,6 +92,19 @@ export function useMidiDevices() {
   // 実 MIDI の入力源。インスタンスは 1 個だけ作り、内側のデバイスを差し替える
   const midiInputRef = useRef<MidiDeviceInput | null>(null);
   midiInputRef.current ??= new MidiDeviceInput();
+
+  // Bluetooth MIDI の入力源(仕様書 F-10。Android ではこちらでキーボードにつなぐ)
+  const bleInputRef = useRef<BleMidiInput | null>(null);
+  bleInputRef.current ??= new BleMidiInput();
+
+  // 画面へ渡す入力源。Web MIDI と Bluetooth の両方をまとめて 1 つに見せる(参照は固定)
+  const combinedInputRef = useRef<CompositeMidiSource | null>(null);
+  combinedInputRef.current ??= new CompositeMidiSource([
+    midiInputRef.current,
+    bleInputRef.current,
+  ]);
+
+  const [bleState, setBleState] = useState<BleMidiState>(() => bleInputRef.current!.getState());
 
   const accessRef = useRef<MIDIAccess | null>(null);
   const rescanTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -226,19 +241,38 @@ export function useMidiDevices() {
     [syncConnection],
   );
 
+  /** Bluetooth で接続する(仕様書 F-10。ユーザー操作から呼ぶこと) */
+  const connectBluetooth = useCallback(() => {
+    void bleInputRef.current!.connect();
+  }, []);
+
+  /** 同じ機器につなぎ直す(機器選択は出ない) */
+  const reconnectBluetooth = useCallback(() => {
+    void bleInputRef.current!.reconnect();
+  }, []);
+
+  // Bluetooth の状態を画面に反映する
+  useEffect(() => {
+    const ble = bleInputRef.current!;
+    setBleState(ble.getState());
+    return ble.subscribe(setBleState);
+  }, []);
+
   // 画面離脱時に受信を止める
   useEffect(() => {
     const input = midiInputRef.current;
+    const ble = bleInputRef.current;
     return () => {
       clearRescanTimers();
       input?.disconnect();
+      ble?.disconnect();
       if (accessRef.current) accessRef.current.onstatechange = null;
     };
   }, []);
 
   return {
-    /** 実 MIDI の入力源(MidiSource)。バーチャル鍵盤と同じインターフェース */
-    midiInput: midiInputRef.current,
+    /** 画面が購読する入力源(MidiSource)。Web MIDI + Bluetooth。バーチャル鍵盤と同じインターフェース */
+    midiInput: combinedInputRef.current,
     status,
     errorMessage,
     devices,
@@ -248,6 +282,15 @@ export function useMidiDevices() {
     selectDevice,
     requestAccess,
     rescan,
+    /** Bluetooth 接続(仕様書 F-10) */
+    bluetooth: {
+      supported: bleInputRef.current.isSupported(),
+      status: bleState.status,
+      deviceName: bleState.deviceName,
+      errorMessage: bleState.errorMessage,
+      connect: connectBluetooth,
+      reconnect: reconnectBluetooth,
+    },
   };
 }
 
