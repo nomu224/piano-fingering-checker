@@ -33,6 +33,7 @@ import {
   drawLandmarks,
   type NoteOnMark,
 } from "./drawLandmarks";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { useHandCamera } from "./useHandCamera";
 import type { UseMidiDevices } from "./useMidiDevices";
@@ -329,47 +330,67 @@ export function CalibrationDebug({ onCalibrated, midi }: Props) {
     done: "キャリブレーション完了。白線の鍵盤位置に指を置いて対応する音を押すと、押した指の推定結果が表示されます。",
   };
 
+  /** カメラ選択(エラー時と「設定」の両方で使う) */
+  const cameraSelect = (
+    <label style={{ fontSize: 14 }}>
+      カメラ:{" "}
+      <select
+        value={selectedDeviceId}
+        onChange={(e) => startCamera(e.target.value)}
+        style={{ fontSize: 14, padding: 4 }}
+      >
+        {devices.length === 0 && <option value="">(権限許可後に一覧表示)</option>}
+        {devices.map((d, i) => (
+          <option key={d.deviceId} value={d.deviceId}>
+            {d.label || `カメラ ${i + 1}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
     <div>
-      <h1 style={{ fontSize: 20 }}>キャリブレーション・指特定(P3 動作確認画面)</h1>
-
-      {/* カメラ選択・ミラー(変更するとキャリブレーションはやり直し) */}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-        <label style={{ fontSize: 14 }}>
-          カメラ:{" "}
-          <select
-            value={selectedDeviceId}
-            onChange={(e) => startCamera(e.target.value)}
-            style={{ fontSize: 14, padding: 4 }}
-          >
-            {devices.length === 0 && <option value="">(権限許可後に一覧表示)</option>}
-            {devices.map((d, i) => (
-              <option key={d.deviceId} value={d.deviceId}>
-                {d.label || `カメラ ${i + 1}`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ fontSize: 14 }}>
-          <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} />{" "}
-          左右反転(ミラー)表示
-        </label>
-        <span style={{ fontSize: 12, color: "#777" }}>
-          ※ カメラ・ミラーを変更するとキャリブレーションはやり直しになります
-        </span>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+        <strong style={{ fontSize: 16 }}>キャリブレーション・指特定</strong>
+        <span style={{ fontSize: 12, color: "#777" }}>(P3 動作確認画面)</span>
       </div>
 
+      {/* カメラが使えないときは、別のカメラを選び直す導線を折りたたみの外に出す(仕様書 10 章) */}
       {cameraState === "error" && (
         <div style={{ background: "#4e2a2a", padding: 12, borderRadius: 8, marginBottom: 12 }}>
           <p style={{ margin: "0 0 8px", color: "#ff8a80" }}>{errorMessage}</p>
-          <button onClick={() => startCamera(selectedDeviceId)} style={buttonStyle}>
-            再試行
-          </button>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            {cameraSelect}
+            <button onClick={() => startCamera(selectedDeviceId)} style={buttonStyle}>
+              再試行
+            </button>
+          </div>
         </div>
       )}
       {cameraState === "initializing" && (
         <p style={{ color: "#ffb300" }}>初期化中…(初回は手認識モデルの読み込みに数秒かかります)</p>
       )}
+
+      {/* 横画面ではカメラ(左)と手順・操作(右)を左右に並べ、手順を読みながらカメラを見られるようにする */}
+      <div className="calib-top">
+        <div className="calib-cam">
+          {/* カメラプレビュー(ミラーは表示のみ反転)。
+              枠の大きさは .cam-frame(index.css)で決める */}
+          <div className="cam-frame" style={{ maxWidth: 640, transform: mirror ? "scaleX(-1)" : "none" }}>
+            <video ref={videoRef} playsInline muted style={{ width: "100%", display: "block", borderRadius: 8 }} />
+            <canvas
+              ref={canvasRef}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            />
+          </div>
+          <p style={{ fontSize: 12, color: "#777", margin: "4px 0 12px" }}>
+            処理速度: {fps} fps | カメラ映像は端末の外に送信されません
+          </p>
+        </div>
+
+        <div className="calib-side">
+          <div className="calib-side-scroll">
 
       {/* ウィザードのガイド */}
       <div style={{ background: "#2a2a3e", padding: 12, borderRadius: 8, marginBottom: 12 }}>
@@ -482,23 +503,30 @@ export function CalibrationDebug({ onCalibrated, midi }: Props) {
         </div>
       )}
 
-      {/* カメラプレビュー(ミラーは表示のみ反転) */}
-      <div style={{ position: "relative", maxWidth: 640, transform: mirror ? "scaleX(-1)" : "none" }}>
-        <video ref={videoRef} playsInline muted style={{ width: "100%", display: "block", borderRadius: 8 }} />
-        <canvas
-          ref={canvasRef}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-        />
+          </div>
+
+          {/* バーチャル MIDI(実キーボードが無くても動作確認できる。仕様書 F-02)
+              ※ 打鍵しながらカメラを見る操作なので、スクロール領域の外(下段)に固定する */}
+          <VirtualKeyboard keyboard={keyboardRef.current} />
+        </div>
       </div>
-      <p style={{ fontSize: 12, color: "#777", margin: "4px 0 12px" }}>
-        処理速度: {fps} fps | カメラ映像は端末の外に送信されません
-      </p>
 
-      {/* バーチャル MIDI(実キーボードが無くても動作確認できる) */}
-      {/* MIDI 機器の選択(F-01)。実キーボードでもキャリブレーションできる */}
-      <MidiDeviceSelector midi={midi} />
+      {/* 練習中に触らない設定は折りたたむ(仕様書 9 章)。中身は閉じていても使える */}
+      <CollapsibleSection title="設定" summary="カメラ・ミラー・MIDI 機器">
+        <div style={{ display: "flex", gap: 16, alignItems: "center", margin: "8px 0", flexWrap: "wrap" }}>
+          {cameraSelect}
+          <label style={{ fontSize: 14 }}>
+            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} />{" "}
+            左右反転(ミラー)表示
+          </label>
+          <span style={{ fontSize: 12, color: "#777" }}>
+            ※ カメラ・ミラーを変更するとキャリブレーションはやり直しになります
+          </span>
+        </div>
 
-      <VirtualKeyboard keyboard={keyboardRef.current} />
+        {/* MIDI 機器の選択(F-01)・Bluetooth 接続(F-10)。実キーボードでもキャリブレーションできる */}
+        <MidiDeviceSelector midi={midi} />
+      </CollapsibleSection>
     </div>
   );
 }
