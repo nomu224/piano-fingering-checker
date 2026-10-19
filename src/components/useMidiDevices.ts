@@ -295,3 +295,35 @@ export function useMidiDevices() {
 }
 
 export type UseMidiDevices = ReturnType<typeof useMidiDevices>;
+
+/**
+ * 画面の見出しに出す MIDI の状態を作るのに必要な情報だけを取り出した型。
+ * (useMidiDevices の戻り値をそのまま渡せる。テストしやすいように最小限にしてある)
+ */
+export interface MidiStatusInput {
+  selectedId: string;
+  isSelectedConnected: boolean;
+  devices: readonly MidiDeviceInfo[];
+  bluetooth: { status: BleMidiState["status"]; deviceName: string };
+}
+
+/**
+ * 実機のキーボードがつながっているか(USB / Web MIDI または Bluetooth)。
+ * バーチャル鍵盤を最初から開いておくかの判断に使う(仕様書 F-02)。
+ */
+export function isRealKeyboardConnected(midi: MidiStatusInput): boolean {
+  if (midi.bluetooth.status === "connected") return true;
+  return midi.selectedId !== VIRTUAL_DEVICE_ID && midi.isSelectedConnected;
+}
+
+/** 見出しに出す MIDI の状態(折りたたんでいても分かるようにするため。仕様書 9 章) */
+export function midiStatusText(midi: MidiStatusInput): string {
+  if (midi.bluetooth.status === "connected") {
+    return `Bluetooth: ${midi.bluetooth.deviceName}`;
+  }
+  if (midi.selectedId !== VIRTUAL_DEVICE_ID && midi.isSelectedConnected) {
+    const device = midi.devices.find((d) => d.id === midi.selectedId);
+    return device ? `MIDI: ${device.name}` : "MIDI: 接続中";
+  }
+  return "バーチャル鍵盤";
+}

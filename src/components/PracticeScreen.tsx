@@ -38,7 +38,9 @@ import {
   drawLandmarks,
   type NoteOnMark,
 } from "./drawLandmarks";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
+import { isRealKeyboardConnected, midiStatusText } from "./useMidiDevices";
 import { ResultScreen } from "./ResultScreen";
 import { SongImport } from "./SongImport";
 import { SettingsModal } from "./SettingsModal";
@@ -179,9 +181,11 @@ function PracticeWithCamera({
           </span>
         </label>
       )}
+      {/* 枠の大きさは .cam-frame(index.css)で決める。
+          video / canvas に直接 max-height を付けると、オーバーレイが映像とずれる */}
       <div
+        className="cam-frame"
         style={{
-          position: "relative",
           maxWidth: 480,
           transform: mirror ? "scaleX(-1)" : "none",
         }}
@@ -427,46 +431,27 @@ function PracticeCore({
 
   return (
     <div>
-      <h1 style={{ fontSize: 20 }}>練習(S-04)</h1>
-
-      {/* 曲選択(正式な楽曲選択画面 S-03 は P5) */}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-        <label style={{ fontSize: 14 }}>
-          曲:{" "}
-          <select
-            value={song.id}
-            onChange={(e) => {
-              const next = songList.find((s) => s.id === e.target.value);
-              if (next) switchSong(next);
-            }}
-            style={{ fontSize: 14, padding: 4 }}
-          >
-            {songList.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* ヘッダ(1 行): 畳んでいても分かるように曲名と MIDI の状態を出す(仕様書 9 章) */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: 6,
+        }}
+      >
+        <strong style={{ fontSize: 16 }}>練習</strong>
+        <span style={{ fontSize: 15 }}>{song.title}</span>
         <span style={{ fontSize: 13, color: "#aaa" }}>
           打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} / 判定不能{" "}
           {counts.undetermined}
         </span>
+        <span style={{ fontSize: 13, color: "#8bc34a" }}>{midiStatusText(midi)}</span>
+        <button onClick={() => setSettingsOpen(true)} style={buttonStyle}>
+          ⚙ 設定
+        </button>
       </div>
-
-      {/* 楽譜ファイルの追加(F-09) */}
-      <div style={{ marginBottom: 8 }}>
-        <SongImport
-          allSongs={songList}
-          selectedSong={song}
-          selectedIsUserSong={isUserSong(song)}
-          onAdded={handleSongAdded}
-          onRemoved={handleSongRemoved}
-        />
-      </div>
-
-      {/* MIDI 機器の選択(F-01) */}
-      <MidiDeviceSelector midi={midi} />
 
       {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
       <div className="practice-top">
@@ -485,7 +470,14 @@ function PracticeCore({
               次に弾く音({judge.getCursor() + 1} / {song.events.length}
               {paused ? "・一時停止中" : ""})
             </div>
-            <div style={{ fontSize: 44, fontWeight: "bold", opacity: paused ? 0.4 : 1 }}>
+            {/* 遠目でも読めるよう大きく。画面幅に追従させる(両手の曲は 2 音並ぶので上限を抑える) */}
+            <div
+              style={{
+                fontSize: "clamp(32px, 4.5vw, 56px)",
+                fontWeight: "bold",
+                opacity: paused ? 0.4 : 1,
+              }}
+            >
               {current.notes.map((n) => (
                 <span key={`${n.midi}-${n.hand}`} style={{ marginRight: 24 }}>
                   {noteName(n.midi)}
@@ -523,7 +515,7 @@ function PracticeCore({
           {paused ? "再開" : "一時停止"}
         </button>
         <button onClick={restart} style={buttonStyle}>
-          最初からやり直す
+          やり直す
         </button>
         <label style={{ fontSize: 14 }}>
           <input
@@ -539,19 +531,65 @@ function PracticeCore({
           開始
         </button>
         <button onClick={() => setShowResult(true)} style={buttonStyle}>
-          練習を終了して結果を見る
-        </button>
-        <button onClick={() => setSettingsOpen(true)} style={buttonStyle}>
-          ⚙ 設定
+          結果を見る
         </button>
         {message && <span style={{ color: "#ffb300", fontSize: 14 }}>{message}</span>}
       </div>
 
+      {/* 練習中に操作しないものは折りたたむ(仕様書 9 章)。
+          中身は閉じていても DOM に残るので、機能は今までどおり使える */}
+      <CollapsibleSection title="準備" summary={`曲・楽譜の追加・MIDI 機器(${song.title})`}>
+        {/* 曲選択(正式な楽曲選択画面 S-03 は P5) */}
+        <label style={{ fontSize: 14, display: "inline-block", margin: "8px 0" }}>
+          曲:{" "}
+          <select
+            value={song.id}
+            onChange={(e) => {
+              const next = songList.find((s) => s.id === e.target.value);
+              if (next) switchSong(next);
+            }}
+            style={{ fontSize: 14, padding: 4 }}
+          >
+            {songList.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* 楽譜ファイルの追加(F-09) */}
+        <div style={{ marginBottom: 8 }}>
+          <SongImport
+            allSongs={songList}
+            selectedSong={song}
+            selectedIsUserSong={isUserSong(song)}
+            onAdded={handleSongAdded}
+            onRemoved={handleSongRemoved}
+          />
+        </div>
+
+        {/* MIDI 機器の選択(F-01)・Bluetooth 接続(F-10) */}
+        <MidiDeviceSelector midi={midi} />
+      </CollapsibleSection>
+
+      {/* バーチャル MIDI(実キーボードが無い間の入力手段。仕様書 F-02)
+          ※ 条件レンダリングにしない: 閉じている間も PC キー入力を受け続ける必要がある */}
+      <CollapsibleSection
+        title="バーチャル鍵盤"
+        summary="画面の鍵盤 / PC のキーボードで弾けます"
+        defaultOpen={!isRealKeyboardConnected(midi)}
+      >
+        <VirtualKeyboard keyboard={keyboardRef.current} />
+      </CollapsibleSection>
+
       {/* 判定ログ(直近分。全ログはメモリ保持、JSON ダウンロードは P5) */}
       {judge.getLog().length > 0 && (
-        <details style={{ fontSize: 13, color: "#aaa", marginBottom: 8 }}>
-          <summary>判定ログ(直近 {Math.min(8, judge.getLog().length)} 件 / 全 {judge.getLog().length} 件)</summary>
-          <ul style={{ paddingLeft: 20, margin: "4px 0" }}>
+        <CollapsibleSection
+          title="判定ログ"
+          summary={`直近 ${Math.min(8, judge.getLog().length)} 件 / 全 ${judge.getLog().length} 件`}
+        >
+          <ul style={{ paddingLeft: 20, margin: "4px 0", fontSize: 13, color: "#aaa" }}>
             {judge
               .getLog()
               .slice(-8)
@@ -562,11 +600,8 @@ function PracticeCore({
                 </li>
               ))}
           </ul>
-        </details>
+        </CollapsibleSection>
       )}
-
-      {/* バーチャル MIDI(実キーボードが無い間の入力手段) */}
-      <VirtualKeyboard keyboard={keyboardRef.current} />
 
       {/* 結果サマリー S-05(オーバーレイ表示。judge・カメラは生きたまま) */}
       {showResult && (
