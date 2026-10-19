@@ -58,44 +58,29 @@ export default function App() {
     };
   }, []);
 
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: "8px 16px",
-    fontSize: 14,
-    background: active ? "#5c6bc0" : "#3b3b52",
-    color: "#eee",
-    border: "1px solid #666",
-    borderRadius: "6px 6px 0 0",
-    cursor: "pointer",
-  });
+  // 見た目は index.css の .app-tab に置いている(横持ちで高さを詰めるため。
+  // インラインスタイルは CSS より強く、メディアクエリで上書きできない)
+  const tabClass = (active: boolean) => (active ? "app-tab is-active" : "app-tab");
 
   return (
     <div>
       {/* 音がまだ有効になっていないときの案内(F-08。実鍵盤だけでは解除されないため) */}
       {!audioReady && (
-        <div
-          style={{
-            background: "#3e3a26",
-            color: "#ffd54f",
-            padding: "8px 12px",
-            borderRadius: 8,
-            marginBottom: 8,
-            fontSize: 14,
-          }}
-        >
+        <div className="audio-notice">
           🔇 音を出すには、画面を一度タップ(クリック)してください
         </div>
       )}
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #666", marginBottom: 16, flexWrap: "wrap" }}>
-        <button style={tabStyle(tab === "practice-p1")} onClick={() => setTab("practice-p1")}>
+      <div className="app-tabs">
+        <button className={tabClass(tab === "practice-p1")} onClick={() => setTab("practice-p1")}>
           P1: 判定エンジン確認
         </button>
-        <button style={tabStyle(tab === "camera")} onClick={() => setTab("camera")}>
+        <button className={tabClass(tab === "camera")} onClick={() => setTab("camera")}>
           P2: カメラ確認
         </button>
-        <button style={tabStyle(tab === "calibration")} onClick={() => setTab("calibration")}>
+        <button className={tabClass(tab === "calibration")} onClick={() => setTab("calibration")}>
           P3: キャリブレーション・指特定
         </button>
-        <button style={tabStyle(tab === "practice")} onClick={() => setTab("practice")}>
+        <button className={tabClass(tab === "practice")} onClick={() => setTab("practice")}>
           P4: 練習
         </button>
       </div>

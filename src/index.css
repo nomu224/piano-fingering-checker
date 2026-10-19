@@ -1,5 +1,5 @@
 /* 全体の基本スタイル
-   スマホ縦持ちを基本レイアウトとしつつ、PC でも崩れないレスポンシブにする(仕様書 9 章)。
+   タブレット横持ちを基本レイアウトとし、スマホ縦持ち・PC でも崩れないレスポンシブにする(仕様書 9 章)。
    練習画面は「画面を見なくても使える」前提のため、遠目でも分かる大きな表示を優先する。 */
 * {
   box-sizing: border-box;
@@ -8,7 +8,7 @@
 html,
 body {
   margin: 0;
-  /* 横スクロールを出さない(スマホ縦持ちでレイアウトが破綻しないように) */
+  /* 横スクロールを出さない(狭い画面でレイアウトが破綻しないように) */
   overflow-x: hidden;
 }
 
@@ -46,21 +46,161 @@ input {
   }
 }
 
-/* 練習画面: 横画面(タブレット横持ちなど)ではカメラと情報を左右に並べて、
-   縦スクロールを減らし横幅を活かす。縦画面・狭い画面では従来どおり縦積みのまま。 */
-@media (orientation: landscape) and (min-width: 800px) {
+/* ---- タブバー・音声案内(App.tsx)----
+   横持ちで高さを詰められるよう、インラインスタイルではなくここに置く
+   (インラインスタイルは CSS より強く、クラスを足しても上書きできないため) */
+.app-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #666;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.app-tab {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: #3b3b52;
+  color: #eee;
+  border: 1px solid #666;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+
+.app-tab.is-active {
+  background: #5c6bc0;
+}
+
+.audio-notice {
+  background: #3e3a26;
+  color: #ffd54f;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+/* ---- 折りたたみセクション(CollapsibleSection)---- */
+.collapsible {
+  background: #26263a;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.collapsible > summary {
+  cursor: pointer;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
+.collapsible-note {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
+.collapsible-body {
+  padding: 0 10px 10px;
+}
+
+/* ---- カメラ映像の枠 ----
+   【重要】video や canvas に直接 max-height を付けてはいけない。
+   canvas は枠いっぱい(width/height 100%)に重ねているため、video だけ高さを制限すると
+   映像が枠の中でレターボックス表示になり、ランドマークや鍵盤の白線が実際の手とずれる。
+   高さを抑えたいときは、この枠の「幅」を映像の縦横比から逆算して絞ること。 */
+.cam-frame {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+}
+
+/* ---- バーチャル鍵盤(VirtualKeyboard)----
+   横持ちで高さを縮められるよう、鍵盤の高さをここで指定する(鍵数・オクターブシフトは変えない) */
+.vk-keys {
+  position: relative;
+  height: 160px;
+  user-select: none;
+  touch-action: none;
+}
+
+/* ---- 横持ち(タブレット)のレイアウト ----
+   min-height も条件に入れて、横持ちスマホ(高さ 400px 前後)では 2 列にしない */
+@media (orientation: landscape) and (min-width: 800px) and (min-height: 500px) {
+  /* 高さを節約する */
+  .app-tabs {
+    margin-bottom: 8px;
+  }
+
+  .app-tab {
+    padding: 5px 12px;
+    font-size: 13px;
+  }
+
+  .audio-notice {
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  /* タブレットもタッチ操作なので、ボタンの当たり判定を確保する */
+  button {
+    min-height: 36px;
+  }
+
+  /* 練習画面: カメラ(左)と練習情報(右)を左右に並べる */
   .practice-top {
     display: flex;
     gap: 16px;
     align-items: flex-start;
   }
+
   .practice-cam {
-    flex: 0 0 auto;
-    max-width: 55%;
+    flex: 0 0 45%;
+    min-width: 0;
   }
+
   .practice-info {
     flex: 1 1 0;
     min-width: 0;
   }
-}
 
+  /* 画面の高さの約 1/3 に収まるよう、縦横比(4:3)から幅を逆算する */
+  .practice-cam .cam-frame {
+    width: min(100%, calc(36dvh * 4 / 3));
+  }
+
+  /* キャリブレーション画面: カメラ(左)と手順・操作(右)を左右に並べる */
+  .calib-top {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .calib-cam {
+    flex: 0 0 45%;
+    min-width: 0;
+  }
+
+  .calib-cam .cam-frame {
+    width: min(100%, calc(44dvh * 4 / 3));
+  }
+
+  /* 右列: 上段(手順・一覧)だけスクロールし、下段の鍵盤は常に見える位置に固定する */
+  .calib-side {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: 56dvh;
+  }
+
+  .calib-side-scroll {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* 鍵盤を低くして高さを節約する(鍵数・オクターブシフトはそのまま) */
+  .vk-keys {
+    height: 104px;
+  }
+}

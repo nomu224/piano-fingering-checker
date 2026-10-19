@@ -108,9 +108,9 @@ export function VirtualKeyboard({ keyboard }: Props) {
         </button>
       </div>
 
-      <div
-        style={{ position: "relative", height: 160, userSelect: "none", touchAction: "none" }}
-      >
+      {/* 鍵盤の高さは index.css の .vk-keys で指定する
+          (横持ちのときだけ低くして画面の高さを節約するため。鍵数・オクターブシフトは変えない) */}
+      <div className="vk-keys">
         {/* 白鍵 */}
         {whiteKeys.map(({ midi, whiteIndex }) => (
           <div
