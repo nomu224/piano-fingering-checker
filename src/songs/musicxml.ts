@@ -117,9 +117,24 @@ function pitchToMidi(
 }
 
 /** 収集した音(イベントにまとめる前の中間データ) */
+/**
+ * 四分音符単位の時刻を丸める(仕様書 8.1)。
+ *
+ * 3 連符などでは duration / divisions が循環小数になり、
+ * 0.3333333333333333 と 0.33333333333333337 のようにわずかに違う値が生まれる。
+ * そのまま同時発音のまとめに使うと**和音が別イベントに割れてしまう**ので、
+ * 累積するたびに、またキーを作るたびに必ずこの関数を通す。
+ */
+function roundQuarters(value: number): number {
+  const rounded = Math.round(value * 1e6) / 1e6;
+  // -0 と 0 を同じ値にする(キー文字列が "-0" と "0" に分かれないように)
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 interface CollectedNote {
   measureSeq: number;
   measureNumber: number;
+  /** 小節内の発音位置(四分音符単位。仕様書 8.1 の onsetQuarters) */
   startTime: number;
   midi: number;
   finger: number | null;
@@ -173,8 +188,11 @@ export function convertMusicXml(
   const work = firstChild(root, "work");
   const autoTitle = work ? childText(work, "work-title") : undefined;
 
-  // ※ <divisions>(四分音符あたりの時間単位)は読まない。
-  //    同一小節内の相対的な時刻の一致だけを見るため、単位は約分されて結果に影響しないため。
+  // <divisions>(四分音符あたりの時間単位)を読む。
+  // 楽譜表示(F-11)で音符の位置を指すため、小節内の発音位置を**四分音符単位**で記録する必要がある。
+  // divisions は <attributes> に現れ、次に指定されるまで小節をまたいで有効。
+  let divisions = 1;
+  let divisionsSeen = false;
   let graceSkipped = 0;
   let noFingerCount = 0;
   let noStaffSeen = false;
@@ -188,18 +206,29 @@ export function convertMusicXml(
     const measureNumber =
       Number.isInteger(numberAttr) && numberAttr >= 1 ? numberAttr : measureIdx + 1;
 
-    let time = 0; // 小節内の現在時刻(divisions 単位)
+    let time = 0; // 小節内の現在時刻(四分音符単位)
     let lastNoteStart = 0; // <chord/> 用: 直前の音の開始時刻
 
     for (const el of kidsOf(measure)) {
       const tag = tagOf(el);
 
+      // divisions の変更を拾う(小節の途中で変わることもある)
+      if (tag === "attributes") {
+        const value = Number(childText(el, "divisions") ?? NaN);
+        if (Number.isFinite(value) && value > 0) {
+          divisions = value;
+          divisionsSeen = true;
+        }
+        continue;
+      }
+      // ※ duration は divisions 単位なので、**足し引きする時点で**四分音符単位に直す
+      //   (途中で divisions が変わる曲でも正しくなるように)
       if (tag === "backup") {
-        time -= Number(childText(el, "duration") ?? 0);
+        time = roundQuarters(time - Number(childText(el, "duration") ?? 0) / divisions);
         continue;
       }
       if (tag === "forward") {
-        time += Number(childText(el, "duration") ?? 0);
+        time = roundQuarters(time + Number(childText(el, "duration") ?? 0) / divisions);
         continue;
       }
       if (tag !== "note") continue;
@@ -217,7 +246,7 @@ export function convertMusicXml(
       const startTime = isChord ? lastNoteStart : time;
       if (!isChord) {
         lastNoteStart = time;
-        time += duration;
+        time = roundQuarters(time + duration / divisions);
       }
 
       // 休符は時刻だけ進めて除外
@@ -287,7 +316,8 @@ export function convertMusicXml(
   // 同一時刻の音を 1 イベントにまとめる(小節順 → 時刻順)
   const groups = new Map<string, Group>();
   for (const n of collected) {
-    const key = `${n.measureSeq}:${n.startTime}`;
+    // キーも丸めた値から作る(浮動小数点の誤差で和音が割れないように)
+    const key = `${n.measureSeq}:${roundQuarters(n.startTime)}`;
     if (!groups.has(key)) {
       groups.set(key, {
         measureSeq: n.measureSeq,
@@ -331,6 +361,9 @@ export function convertMusicXml(
     events.push({
       index: events.length,
       measure: g.measureNumber,
+      // 楽譜表示(F-11)で音符を特定するための情報。判定には使わない(仕様書 8.1)
+      measureIndex: g.measureSeq,
+      onsetQuarters: roundQuarters(g.startTime),
       posInMeasure: pos,
       notes,
     });
@@ -351,6 +384,11 @@ export function convertMusicXml(
   }
   if (noStaffSeen) {
     warnings.push("staff の無い音符があります(右手として扱いました)");
+  }
+  if (!divisionsSeen) {
+    warnings.push(
+      "divisions(音符の長さの単位)が見つかりませんでした。1 として扱いましたが、楽譜表示の位置がずれる可能性があります",
+    );
   }
 
   const song: Song = {

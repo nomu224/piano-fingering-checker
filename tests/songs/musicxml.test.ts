@@ -60,6 +60,8 @@ describe("convertMusicXml: 基本変換", () => {
     expect(song.events[0]).toEqual({
       index: 0,
       measure: 1,
+      measureIndex: 0,
+      onsetQuarters: 0,
       posInMeasure: 1,
       notes: [{ midi: 60, finger: 1, hand: "R" }],
     });
@@ -200,6 +202,132 @@ describe("convertMusicXml: 除外と警告", () => {
 
   it("score-partwise でない XML はエラー", () => {
     expect(() => convertMusicXml("<foo/>")).toThrow();
+  });
+});
+
+// ---- 楽譜表示(F-11)のための位置情報 ----
+
+describe("convertMusicXml: 楽譜表示用の位置情報(仕様書 8.1)", () => {
+  it("小節内の発音位置が四分音符単位で入る(3 拍子)", () => {
+    const xml = score(`<measure number="1">
+      <attributes><divisions>1</divisions></attributes>
+      ${noteXml("C", 4, { staff: 1, finger: 1 })}
+      ${noteXml("D", 4, { staff: 1, finger: 2 })}
+      ${noteXml("E", 4, { staff: 1, finger: 3 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events.map((e) => e.onsetQuarters)).toEqual([0, 1, 2]);
+  });
+
+  it("divisions が 2 以上でも四分音符単位になる", () => {
+    // divisions=4 なら duration 4 = 四分音符、duration 2 = 八分音符
+    const xml = score(`<measure number="1">
+      <attributes><divisions>4</divisions></attributes>
+      ${noteXml("C", 4, { duration: 4, staff: 1 })}
+      ${noteXml("D", 4, { duration: 2, staff: 1 })}
+      ${noteXml("E", 4, { duration: 2, staff: 1 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events.map((e) => e.onsetQuarters)).toEqual([0, 1, 1.5]);
+  });
+
+  it("小節の途中で divisions が変わっても位置が狂わない", () => {
+    const xml = score(`<measure number="1">
+      <attributes><divisions>1</divisions></attributes>
+      ${noteXml("C", 4, { duration: 1, staff: 1 })}
+      <attributes><divisions>4</divisions></attributes>
+      ${noteXml("D", 4, { duration: 4, staff: 1 })}
+      ${noteXml("E", 4, { duration: 4, staff: 1 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events.map((e) => e.onsetQuarters)).toEqual([0, 1, 2]);
+  });
+
+  it("和音(chord)の 2 音目は直前と同じ位置になり、1 つのイベントにまとまる", () => {
+    const xml = score(`<measure number="1">
+      <attributes><divisions>1</divisions></attributes>
+      ${noteXml("C", 4, { staff: 1, finger: 1 })}
+      ${noteXml("E", 4, { staff: 1, finger: 3, chord: true })}
+      ${noteXml("G", 4, { staff: 1, finger: 5 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events).toHaveLength(2);
+    expect(song.events[0].onsetQuarters).toBe(0);
+    expect(song.events[0].notes).toHaveLength(2);
+    expect(song.events[1].onsetQuarters).toBe(1);
+  });
+
+  it("3 連符(循環小数になる)でも和音が割れない", () => {
+    // divisions=3、duration=1 の音符 3 つ = 四分音符 1 つ分の 3 連符
+    const xml = score(`<measure number="1">
+      <attributes><divisions>3</divisions></attributes>
+      ${noteXml("C", 4, { duration: 1, staff: 1 })}
+      ${noteXml("E", 4, { duration: 1, staff: 1, chord: true })}
+      ${noteXml("D", 4, { duration: 1, staff: 1 })}
+      ${noteXml("F", 4, { duration: 1, staff: 1, chord: true })}
+      ${noteXml("E", 4, { duration: 1, staff: 1 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events).toHaveLength(3);
+    expect(song.events.every((e) => e.notes.length === 1 || e.notes.length === 2)).toBe(true);
+    expect(song.events[1].onsetQuarters).toBeCloseTo(0.333333, 5);
+    expect(song.events[1].notes).toHaveLength(2);
+  });
+
+  it("休符・タイ・装飾音を挟んでも位置がずれない", () => {
+    const xml = score(`<measure number="1">
+      <attributes><divisions>1</divisions></attributes>
+      ${noteXml("C", 4, { staff: 1 })}
+      <note><rest/><duration>1</duration><staff>1</staff></note>
+      ${noteXml("D", 4, { staff: 1, grace: true })}
+      ${noteXml("E", 4, { staff: 1 })}
+      ${noteXml("E", 4, { staff: 1, ties: ["stop"] })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    // ド(0 拍目)と ミ(2 拍目)。休符・装飾音・タイ後続は音符として出ない
+    expect(song.events.map((e) => e.onsetQuarters)).toEqual([0, 2]);
+  });
+
+  it("backup を使う両手譜で、左手の位置が小節頭に戻る", () => {
+    const xml = score(`<measure number="1">
+      <attributes><divisions>1</divisions></attributes>
+      ${noteXml("C", 5, { staff: 1 })}
+      ${noteXml("D", 5, { staff: 1 })}
+      <backup><duration>2</duration></backup>
+      ${noteXml("C", 3, { staff: 2 })}
+    </measure>`);
+    const { song } = convertMusicXml(xml);
+    // 右手 1 音目と左手が同じ位置 = 1 つのイベントにまとまる
+    expect(song.events).toHaveLength(2);
+    expect(song.events[0].onsetQuarters).toBe(0);
+    expect(song.events[0].notes).toHaveLength(2);
+  });
+
+  it("出現順の小節インデックスが入る(弱起で番号が 0 でもずれない)", () => {
+    const xml = score(`
+      <measure number="0">
+        <attributes><divisions>1</divisions></attributes>
+        ${noteXml("C", 4, { staff: 1 })}
+      </measure>
+      <measure number="1">
+        ${noteXml("D", 4, { staff: 1 })}
+      </measure>`);
+    const { song } = convertMusicXml(xml);
+    expect(song.events.map((e) => e.measureIndex)).toEqual([0, 1]);
+    // 印刷上の番号(measure)は譜面の表記を優先し、0 以下のときだけ出現順に置き換える。
+    // そのため弱起では 1 小節目と 2 小節目がどちらも「1」になりうる(結果表示用の値なので許容)。
+    // 楽譜との対応づけには measureIndex を使うので、この重複は影響しない
+    expect(song.events.map((e) => e.measure)).toEqual([1, 1]);
+  });
+
+  it("divisions が無い譜面は 1 として扱い、警告を出す", () => {
+    const xml = score(`<measure number="1">
+      ${noteXml("C", 4, { duration: 1, staff: 1 })}
+      ${noteXml("D", 4, { duration: 1, staff: 1 })}
+    </measure>`);
+    const { song, warnings } = convertMusicXml(xml);
+    expect(song.events.map((e) => e.onsetQuarters)).toEqual([0, 1]);
+    expect(warnings.some((w) => w.includes("divisions"))).toBe(true);
   });
 });
 

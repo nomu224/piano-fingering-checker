@@ -6,6 +6,8 @@
     {
       "index": 0,
       "measure": 1,
+      "measureIndex": 0,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -33,6 +35,8 @@
     {
       "index": 1,
       "measure": 1,
+      "measureIndex": 0,
+      "onsetQuarters": 1.5,
       "posInMeasure": 2,
       "notes": [
         {
@@ -45,6 +49,8 @@
     {
       "index": 2,
       "measure": 1,
+      "measureIndex": 0,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -57,6 +63,8 @@
     {
       "index": 3,
       "measure": 1,
+      "measureIndex": 0,
+      "onsetQuarters": 3,
       "posInMeasure": 4,
       "notes": [
         {
@@ -69,6 +77,8 @@
     {
       "index": 4,
       "measure": 2,
+      "measureIndex": 1,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -96,6 +106,8 @@
     {
       "index": 5,
       "measure": 2,
+      "measureIndex": 1,
+      "onsetQuarters": 1,
       "posInMeasure": 2,
       "notes": [
         {
@@ -108,6 +120,8 @@
     {
       "index": 6,
       "measure": 2,
+      "measureIndex": 1,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -120,6 +134,8 @@
     {
       "index": 7,
       "measure": 3,
+      "measureIndex": 2,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -147,6 +163,8 @@
     {
       "index": 8,
       "measure": 3,
+      "measureIndex": 2,
+      "onsetQuarters": 1,
       "posInMeasure": 2,
       "notes": [
         {
@@ -159,6 +177,8 @@
     {
       "index": 9,
       "measure": 3,
+      "measureIndex": 2,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -171,6 +191,8 @@
     {
       "index": 10,
       "measure": 4,
+      "measureIndex": 3,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -198,6 +220,8 @@
     {
       "index": 11,
       "measure": 4,
+      "measureIndex": 3,
+      "onsetQuarters": 1,
       "posInMeasure": 2,
       "notes": [
         {
@@ -210,6 +234,8 @@
     {
       "index": 12,
       "measure": 4,
+      "measureIndex": 3,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -222,6 +248,8 @@
     {
       "index": 13,
       "measure": 5,
+      "measureIndex": 4,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -249,6 +277,8 @@
     {
       "index": 14,
       "measure": 5,
+      "measureIndex": 4,
+      "onsetQuarters": 1.5,
       "posInMeasure": 2,
       "notes": [
         {
@@ -261,6 +291,8 @@
     {
       "index": 15,
       "measure": 5,
+      "measureIndex": 4,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -273,6 +305,8 @@
     {
       "index": 16,
       "measure": 5,
+      "measureIndex": 4,
+      "onsetQuarters": 3,
       "posInMeasure": 4,
       "notes": [
         {
@@ -285,6 +319,8 @@
     {
       "index": 17,
       "measure": 6,
+      "measureIndex": 5,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -312,6 +348,8 @@
     {
       "index": 18,
       "measure": 6,
+      "measureIndex": 5,
+      "onsetQuarters": 1,
       "posInMeasure": 2,
       "notes": [
         {
@@ -324,6 +362,8 @@
     {
       "index": 19,
       "measure": 6,
+      "measureIndex": 5,
+      "onsetQuarters": 2,
       "posInMeasure": 3,
       "notes": [
         {
@@ -336,6 +376,8 @@
     {
       "index": 20,
       "measure": 7,
+      "measureIndex": 6,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -363,6 +405,8 @@
     {
       "index": 21,
       "measure": 7,
+      "measureIndex": 6,
+      "onsetQuarters": 2,
       "posInMeasure": 2,
       "notes": [
         {
@@ -375,6 +419,8 @@
     {
       "index": 22,
       "measure": 8,
+      "measureIndex": 7,
+      "onsetQuarters": 0,
       "posInMeasure": 1,
       "notes": [
         {
@@ -402,6 +448,8 @@
     {
       "index": 23,
       "measure": 8,
+      "measureIndex": 7,
+      "onsetQuarters": 1,
       "posInMeasure": 2,
       "notes": [
         {
