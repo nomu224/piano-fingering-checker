@@ -146,6 +146,13 @@ input {
 /* ---- 横持ち(タブレット)のレイアウト ----
    min-height も条件に入れて、横持ちスマホ(高さ 400px 前後)では 2 列にしない */
 @media (orientation: landscape) and (min-width: 800px) and (min-height: 500px) {
+  /* 横持ちでは画面の横幅をすべて使う(タブレットを譜面台として使うため。仕様書 9 章)。
+     既定の max-width: 900px のままだと、画面の広い端末で左右が余ってしまう */
+  #root {
+    max-width: none;
+    padding: 10px 16px;
+  }
+
   /* 高さを節約する */
   .app-tabs {
     margin-bottom: 8px;
@@ -198,7 +205,7 @@ input {
   }
 
   .with-score .practice-score {
-    flex: 0 0 56%;
+    flex: 0 0 60%;
     min-width: 0;
   }
 
