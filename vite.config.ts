@@ -51,6 +51,17 @@ export default defineConfig({
       workbox: {
         // アプリシェル(JS/CSS/HTML)のみ precache。MediaPipe の WASM/モデルは含めない
         globPatterns: ["**/*.{js,css,html}"],
+        // 楽譜ライブラリ(約 2.3MB、F-11)は precache しない。
+        // precache に入れると Service Worker を更新するたびに全量ダウンロードになるため、
+        // 「楽譜を表示したときに取得してキャッシュする」方式にする(下の runtimeCaching)
+        globIgnores: ["**/osmd-*.js"],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/osmd-.*\.js$/,
+            handler: "CacheFirst",
+            options: { cacheName: "score-library" },
+          },
+        ],
         // MediaPipe を import するメイン JS チャンクが precache から漏れないよう上限を確保する
         // (下げると「ホーム画面追加してもアプリシェルがキャッシュされない」= PWA の意味が半減)
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
@@ -59,6 +70,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // 楽譜ライブラリを固定名のチャンクに分ける(precache から外すため。F-11)
+        manualChunks: (id: string) =>
+          id.includes("opensheetmusicdisplay") || id.includes("vexflow") ? "osmd" : undefined,
+        chunkFileNames: "assets/[name]-[hash].js",
+      },
+    },
+  },
   test: {
     // テスト対象: tests/ 配下(src/core/ の判定エンジンをテストする)
     include: ["tests/**/*.test.ts"],

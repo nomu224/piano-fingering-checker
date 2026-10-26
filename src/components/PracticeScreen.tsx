@@ -14,6 +14,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -32,6 +33,7 @@ import type {
 import type { NoteMessage } from "../midi/types";
 import { noteName, VirtualMidiKeyboard } from "../midi/virtualKeyboard";
 import { getAllSongs } from "../songs";
+import { getSongMusicXml } from "../songs/musicXmlStore";
 import { isUserSong } from "../songs/userSongs";
 import {
   drawCalibrationOverlay,
@@ -42,6 +44,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { isRealKeyboardConnected, midiStatusText } from "./useMidiDevices";
 import { ResultScreen } from "./ResultScreen";
+import { ScoreView } from "./ScoreView";
 import { SongImport } from "./SongImport";
 import { SettingsModal } from "./SettingsModal";
 import { useHandCamera } from "./useHandCamera";
@@ -283,6 +286,13 @@ function PracticeCore({
   const [showResult, setShowResult] = useState(false);
   // 設定モーダル(S-06)の表示
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 楽譜の表示(F-11)。判定には関係しない表示の設定なので、PracticeSettings には入れない
+  const [showScore, setShowScore] = useState(true);
+  // 楽譜の中身は曲ごとに読み込む(無い曲は null。従来の表示で練習できる)
+  const musicXml = useMemo(
+    () => (showScore ? getSongMusicXml(song.id) : null),
+    [showScore, song.id],
+  );
   // 判定エンジンの内部状態変更を画面に反映させるためのカウンタ
   const [, setVersion] = useState(0);
 
@@ -430,7 +440,8 @@ function PracticeCore({
   };
 
   return (
-    <div>
+    // 楽譜を出しているときは、横持ちでもスクロールが出ないようにカメラと文字を小さくする(index.css)
+    <div className={musicXml ? "with-score" : undefined}>
       {/* ヘッダ(1 行): 畳んでいても分かるように曲名と MIDI の状態を出す(仕様書 9 章) */}
       <div
         style={{
@@ -441,17 +452,30 @@ function PracticeCore({
           marginBottom: 6,
         }}
       >
-        <strong style={{ fontSize: 16 }}>練習</strong>
-        <span style={{ fontSize: 15 }}>{song.title}</span>
-        <span style={{ fontSize: 13, color: "#aaa" }}>
-          打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} / 判定不能{" "}
-          {counts.undetermined}
-        </span>
+        {/* 「練習」はタブに出ているので、ヘッダは曲名から始める(横持ちで 1 行に収めるため) */}
+        <strong style={{ fontSize: 16 }}>{song.title}</strong>
+        {/* 楽譜を出す設定なのに楽譜データが無い曲のとき(F-11。場所を取らないよう 1 行で) */}
+        {showScore && !musicXml && (
+          <span style={{ fontSize: 12, color: "#999" }}>楽譜なし</span>
+        )}
         <span style={{ fontSize: 13, color: "#8bc34a" }}>{midiStatusText(midi)}</span>
+        <button onClick={() => setShowScore((v) => !v)} style={buttonStyle}>
+          {showScore ? "楽譜を隠す" : "楽譜を出す"}
+        </button>
         <button onClick={() => setSettingsOpen(true)} style={buttonStyle}>
           ⚙ 設定
         </button>
       </div>
+
+      {/* 楽譜を出すときは、横画面では楽譜(左)とカメラ・練習情報(右)を左右に並べる。
+          縦に積むと画面の高さが足りなくなるため(仕様書 9 章・F-11) */}
+      <div className="practice-main">
+      {/* 楽譜(F-11)。楽譜データが無い曲では案内だけ出して、従来の表示で練習できるようにする */}
+      {showScore && musicXml && (
+        <div className="practice-score">
+          <ScoreView musicXml={musicXml} />
+        </div>
+      )}
 
       {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
       <div className="practice-top">
@@ -470,13 +494,11 @@ function PracticeCore({
               次に弾く音({judge.getCursor() + 1} / {song.events.length}
               {paused ? "・一時停止中" : ""})
             </div>
-            {/* 遠目でも読めるよう大きく。画面幅に追従させる(両手の曲は 2 音並ぶので上限を抑える) */}
+            {/* 遠目でも読めるよう大きく(大きさは index.css の .next-note。
+                楽譜を出しているときは場所を譲って少し小さくする) */}
             <div
-              style={{
-                fontSize: "clamp(32px, 4.5vw, 56px)",
-                fontWeight: "bold",
-                opacity: paused ? 0.4 : 1,
-              }}
+              className="next-note"
+              style={{ fontWeight: "bold", opacity: paused ? 0.4 : 1 }}
             >
               {current.notes.map((n) => (
                 <span key={`${n.midi}-${n.hand}`} style={{ marginRight: 24 }}>
@@ -506,7 +528,14 @@ function PracticeCore({
       >
         {view?.text ?? "鍵盤を押すと判定が始まります"}
       </div>
+
+      {/* 集計(F-06 の速報値)。ヘッダが 2 行になるのを避けるため、練習情報の列に置く */}
+      <div style={{ fontSize: 13, color: "#aaa" }}>
+        打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} / 判定不能{" "}
+        {counts.undetermined}
+      </div>
         </div>
+      </div>
       </div>
 
       {/* 操作(F-05: 一時停止 / やり直し / 小節指定開始)+ 結果・設定 */}

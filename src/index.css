@@ -114,6 +114,26 @@ input {
   max-width: 640px;
 }
 
+/* ---- 楽譜(ScoreView / 仕様書 F-11)----
+   楽譜は黒い音符を描くため、背景を白にする(アプリ本体は暗い配色のため) */
+.score-view {
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  overflow: auto;
+}
+
+/* 「次に弾く音」の大きさ。遠目でも読めるようにする(仕様書 9 章) */
+.next-note {
+  font-size: clamp(32px, 4.5vw, 56px);
+}
+
+/* 楽譜を出しているときは場所を譲る */
+.with-score .next-note {
+  font-size: clamp(24px, 3.2vw, 40px);
+}
+
 /* ---- バーチャル鍵盤(VirtualKeyboard)----
    横持ちで高さを縮められるよう、鍵盤の高さをここで指定する(鍵数・オクターブシフトは変えない) */
 .vk-keys {
@@ -167,6 +187,35 @@ input {
   /* 画面の高さの約 1/3 に収まるよう、縦横比(4:3)から幅を逆算する */
   .practice-cam .cam-frame {
     width: min(100%, calc(36dvh * 4 / 3));
+  }
+
+  /* 楽譜を出しているときは、楽譜(左)とカメラ・練習情報(右)を左右に並べる。
+     縦に積むと 600px の高さに収まらないため(F-11 / 9 章) */
+  .with-score .practice-main {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .with-score .practice-score {
+    flex: 0 0 56%;
+    min-width: 0;
+  }
+
+  .with-score .score-view {
+    max-height: 56dvh;
+    margin-bottom: 0;
+  }
+
+  /* 右側は幅が狭いので、カメラと練習情報を縦に積む */
+  .with-score .practice-top {
+    flex: 1 1 0;
+    min-width: 0;
+    display: block;
+  }
+
+  .with-score .practice-cam .cam-frame {
+    width: min(100%, calc(22dvh * 4 / 3));
   }
 
   /* キャリブレーション画面: カメラ(左)と手順・操作(右)を左右に並べる */
