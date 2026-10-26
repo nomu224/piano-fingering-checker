@@ -44,6 +44,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { isRealKeyboardConnected, midiStatusText } from "./useMidiDevices";
 import { ResultScreen } from "./ResultScreen";
+import { toScorePosition } from "./scoreCursor";
 import { ScoreView } from "./ScoreView";
 import { SongImport } from "./SongImport";
 import { SettingsModal } from "./SettingsModal";
@@ -473,7 +474,7 @@ function PracticeCore({
       {/* 楽譜(F-11)。楽譜データが無い曲では案内だけ出して、従来の表示で練習できるようにする */}
       {showScore && musicXml && (
         <div className="practice-score">
-          <ScoreView musicXml={musicXml} />
+          <ScoreView musicXml={musicXml} position={toScorePosition(finished ? null : current)} />
         </div>
       )}
 
