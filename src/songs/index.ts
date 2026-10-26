@@ -9,6 +9,7 @@ import type { Song } from "../core/types";
 import doremiJson from "./doremi.json";
 import kakkouJson from "./kakkou.json";
 import londonBridgeJson from "./london-bridge.json";
+import { cleanUpOrphanMusicXml } from "./musicXmlStore";
 import { loadUserSongs } from "./userSongs";
 
 // JSON import は hand が string 型に推論されるため、Song 型へキャストする。
@@ -29,5 +30,8 @@ export const builtinSongs: Song[] = [doremi, kakkou, londonBridge];
  * (毎回呼ぶと判定エンジンが作り直されて練習の進行が消える)。
  */
 export function getAllSongs(): Song[] {
-  return [...builtinSongs, ...loadUserSongs()];
+  const songs = [...builtinSongs, ...loadUserSongs()];
+  // 消し残した楽譜(F-11)があれば掃除する(容量を食い続けないように)
+  cleanUpOrphanMusicXml(songs.map((s) => s.id));
+  return songs;
 }

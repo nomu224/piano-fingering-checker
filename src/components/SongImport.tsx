@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { resumeAudio } from "../audio/audioContext";
 import type { Song } from "../core/types";
 import { convertMusicXml, MusicXmlConvertError } from "../songs/musicxml";
+import { saveUserSongMusicXml } from "../songs/musicXmlStore";
 import { addUserSong, makeUniqueId, makeUniqueTitle, removeUserSong } from "../songs/userSongs";
 
 interface Props {
@@ -99,7 +100,18 @@ export function SongImport({
       });
 
       addUserSong(song);
-      setWarnings(convertWarnings);
+
+      // 楽譜表示(F-11)のため、元の MusicXML も保存する。
+      // 保存できなくても曲自体は追加済みなので、練習はそのまま続けられる
+      const xmlSaved = saveUserSongMusicXml(song.id, text);
+      const allWarnings = xmlSaved
+        ? convertWarnings
+        : [
+            ...convertWarnings,
+            "楽譜データが大きすぎる(または保存容量が足りない)ため、この曲は楽譜表示に対応できません。練習はできます",
+          ];
+
+      setWarnings(allWarnings);
       setInfo(`「${song.title}」を追加しました(${song.events.length} イベント)`);
       onAdded(song);
     } catch (e) {

@@ -7,6 +7,7 @@
 // hand や finger が壊れていると判定エンジン(運指判定)が静かに誤動作するため。
 
 import type { Note, ScoreEvent, Song } from "../core/types";
+import { removeUserSongMusicXml } from "./musicXmlStore";
 
 const STORAGE_KEY = "piano-fingering-checker:user-songs";
 
@@ -54,6 +55,13 @@ function isValidEvent(value: unknown): value is ScoreEvent {
   if (!Number.isInteger(e.index)) return false;
   if (!Number.isInteger(e.measure)) return false;
   if (!Number.isInteger(e.posInMeasure)) return false;
+  // 楽譜表示(F-11)用の値。古いデータには無いので「あれば検証・無ければ無視」
+  if (e.measureIndex !== undefined) {
+    if (!Number.isInteger(e.measureIndex) || (e.measureIndex as number) < 0) return false;
+  }
+  if (e.onsetQuarters !== undefined) {
+    if (!Number.isFinite(e.onsetQuarters) || (e.onsetQuarters as number) < 0) return false;
+  }
   if (!Array.isArray(e.notes) || e.notes.length === 0) return false;
   return e.notes.every(isValidNote);
 }
@@ -141,5 +149,7 @@ export function addUserSong(song: Song): Song[] {
 export function removeUserSong(id: string): Song[] {
   const songs = loadUserSongs().filter((s) => s.id !== id);
   saveUserSongs(songs);
+  // 楽譜(F-11)も一緒に消す(残すと容量を食い続けるため)
+  removeUserSongMusicXml(id);
   return songs;
 }
