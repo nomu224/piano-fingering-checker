@@ -1,5 +1,6 @@
 // 指特定ロジック(仕様書 7.2)のユニットテスト
 import { describe, expect, it } from "vitest";
+import { MIRROR_VIEW } from "../../src/core/constants";
 import {
   absSemitoneWidth,
   estimateFinger,
@@ -174,10 +175,17 @@ describe("estimateFinger: 判定不能(tooFar)", () => {
 });
 
 describe("estimateFinger: 拮抗時の y 座標判定", () => {
-  it("1位と2位の差が 0.25 半音未満なら y が大きい(鍵盤に近い)方を採用", () => {
+  // 鍵盤側が画像の上下どちらかは映像の取り方で決まる(仕様書 7.2)。
+  // 鏡を使う構成(MIRROR_VIEW)では上下が反転するため、期待値も反転する。
+  /** 鍵盤に近い側の y(押している指先の y) */
+  const nearKeysY = MIRROR_VIEW ? 0.5 : 0.8;
+  /** 鍵盤から遠い側の y(手首側の指先の y) */
+  const farKeysY = MIRROR_VIEW ? 0.8 : 0.5;
+
+  it("1位と2位の差が 0.25 半音未満なら、鍵盤に近い側の指を採用", () => {
     const tips = [
-      { x: 0.11, y: 0.8 }, // 親指: 0.2 半音、下にある(押している)
-      { x: 0.12, y: 0.5 }, // 人差し指: 0.4 半音、上にある
+      { x: 0.11, y: nearKeysY }, // 親指: 0.2 半音、鍵盤側(押している)
+      { x: 0.12, y: farKeysY }, // 人差し指: 0.4 半音、手前側
       { x: 0.5 },
       { x: 0.6 },
       { x: 0.7 },
@@ -186,10 +194,10 @@ describe("estimateFinger: 拮抗時の y 座標判定", () => {
     expect(r).toMatchObject({ status: "estimated", finger: 1, usedYTieBreak: true });
   });
 
-  it("距離 2 位でも y が大きければそちらを採用する", () => {
+  it("距離 2 位でも、鍵盤に近い側ならそちらを採用する", () => {
     const tips = [
-      { x: 0.11, y: 0.5 }, // 親指: 距離 1 位だが上にある
-      { x: 0.12, y: 0.8 }, // 人差し指: 距離 2 位だが下にある(押している)
+      { x: 0.11, y: farKeysY }, // 親指: 距離 1 位だが手前側
+      { x: 0.12, y: nearKeysY }, // 人差し指: 距離 2 位だが鍵盤側(押している)
       { x: 0.5 },
       { x: 0.6 },
       { x: 0.7 },

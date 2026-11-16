@@ -5,6 +5,7 @@ import {
   deviationSemitones,
   findLowestFingertip,
 } from "../../src/vision/calibration";
+import { MIRROR_VIEW } from "../../src/core/constants";
 import type { DetectedHand, Hand, LandmarkFrame } from "../../src/core/types";
 
 /** テスト用の手を作るヘルパー(指先 5 点のみ指定、他はダミー) */
@@ -21,27 +22,33 @@ function frameWith(...hands: DetectedHand[]): LandmarkFrame {
   return { timestampMs: 0, hands };
 }
 
-describe("findLowestFingertip(最も下=鍵盤側の指先)", () => {
+describe("findLowestFingertip(鍵盤側の指先)", () => {
+  // 鍵盤側が画像の上下どちらかは映像の取り方で決まる(仕様書 F-03 手順 2)。
+  // 鏡を使う構成(MIRROR_VIEW)では上下が反転するため、期待値も反転させる。
+  const nearKeys = (whenMirror: number, whenNormal: number) =>
+    MIRROR_VIEW ? whenMirror : whenNormal;
+
   it("手が無ければ null", () => {
     expect(findLowestFingertip(frameWith())).toBeNull();
   });
 
-  it("全指先から y が最大のものを選ぶ", () => {
+  it("全指先から鍵盤側のものを選ぶ", () => {
+    const pressedY = nearKeys(0.1, 0.9); // 押している指先(鍵盤に最も近い)
     const h = hand([
       { x: 0.1, y: 0.5 },
-      { x: 0.2, y: 0.9 }, // これが最下(押している指)
+      { x: 0.2, y: pressedY },
       { x: 0.3, y: 0.6 },
       { x: 0.4, y: 0.4 },
-      { x: 0.5, y: 0.3 },
+      { x: 0.5, y: 0.35 },
     ]);
-    expect(findLowestFingertip(frameWith(h))).toEqual({ x: 0.2, y: 0.9 });
+    expect(findLowestFingertip(frameWith(h))).toEqual({ x: 0.2, y: pressedY });
   });
 
   it("両手が映っていれば両方の指先が候補になる(どの手で押すかは任意)", () => {
     const left = hand(
       [
         { x: 0.1, y: 0.5 },
-        { x: 0.15, y: 0.95 }, // 左手の人差し指が最下
+        { x: 0.15, y: nearKeys(0.05, 0.95) }, // 左手の人差し指が鍵盤側
         { x: 0.2, y: 0.5 },
         { x: 0.25, y: 0.5 },
         { x: 0.3, y: 0.5 },
@@ -50,12 +57,15 @@ describe("findLowestFingertip(最も下=鍵盤側の指先)", () => {
     );
     const right = hand([
       { x: 0.6, y: 0.5 },
-      { x: 0.65, y: 0.8 },
+      { x: 0.65, y: nearKeys(0.2, 0.8) },
       { x: 0.7, y: 0.5 },
       { x: 0.75, y: 0.5 },
       { x: 0.8, y: 0.5 },
     ]);
-    expect(findLowestFingertip(frameWith(left, right))).toEqual({ x: 0.15, y: 0.95 });
+    expect(findLowestFingertip(frameWith(left, right))).toEqual({
+      x: 0.15,
+      y: nearKeys(0.05, 0.95),
+    });
   });
 });
 

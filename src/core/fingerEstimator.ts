@@ -14,6 +14,7 @@ import {
   FINGER_AMBIGUOUS_MARGIN_SEMITONES,
   FINGER_MAX_DISTANCE_SEMITONES,
   FINGER_Y_TIEBREAK_MIN_DIFF,
+  MIRROR_VIEW,
 } from "./constants";
 import type {
   DetectedHand,
@@ -149,14 +150,17 @@ export function estimateFinger(
   const margin = second.distance - first.distance;
 
   // ロジック 5b: 1 位と 2 位が拮抗 → y 座標を第 2 の判定材料に使う
-  // (押下時は指先が下がる=画像の下=鍵盤に近い。つまり y が大きい方を採用)
+  // 押下した指先は鍵盤に近い側にある。鍵盤側が画像の上下どちらかは映像の取り方で決まる:
+  // ・鏡を使わない構成 → 画像の下(y が大きい方を採用)
+  // ・鏡で写す構成     → 上下が反転するので画像の上(y が小さい方を採用)
   if (margin < FINGER_AMBIGUOUS_MARGIN_SEMITONES) {
     const yDiff = Math.abs(first.y - second.y);
     if (yDiff < FINGER_Y_TIEBREAK_MIN_DIFF) {
       // y 座標も僅差 → 判定不能
       return { status: "undetermined", reason: "ambiguous" };
     }
-    const winner = first.y > second.y ? first : second;
+    const firstIsNearerKeys = MIRROR_VIEW ? first.y < second.y : first.y > second.y;
+    const winner = firstIsNearerKeys ? first : second;
     return {
       status: "estimated",
       finger: winner.finger,

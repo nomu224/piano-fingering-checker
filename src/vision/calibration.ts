@@ -7,6 +7,7 @@
 // 前提: カメラは鍵盤の上方に設置し、映像の下側が鍵盤になる向きで使う
 // (ウィザードのガイド文にも明記する)。
 
+import { MIRROR_VIEW } from "../core/constants";
 import { absSemitoneWidth, noteToX } from "../core/fingerEstimator";
 import type { KeyboardCalibration, LandmarkFrame } from "../core/types";
 
@@ -28,20 +29,28 @@ export interface LowestFingertip {
 const FINGERTIP_LANDMARK_INDICES = [4, 8, 12, 16, 20] as const;
 
 /**
- * フレーム内の全検出手・全指先から「最も下(=正規化 y が最大=鍵盤側)」の指先を返す(F-03 手順 2)。
+ * フレーム内の全検出手・全指先から「鍵盤側にある」指先を返す(F-03 手順 2)。
  * どの鍵盤をどの手・どの指で押すかはユーザーの任意のため、両手すべての指先を候補にする。
+ *
+ * 鍵盤側が画像の上下どちらかは、映像の取り方で決まる(仕様書 F-03 手順 2):
+ * ・鏡を使わない構成 → 画像の下(y が最大)
+ * ・鏡で写す構成(MIRROR_VIEW) → 上下が反転するので画像の上(y が最小)
+ *
+ * ここを間違えると、押した指ではなく手首側の別の指の位置を基準にしてしまい、
+ * 鍵盤の位置そのものがずれて、以降の運指判定がほぼ全部外れる。
  */
 export function findLowestFingertip(frame: LandmarkFrame): LowestFingertip | null {
-  let lowest: LowestFingertip | null = null;
+  let best: LowestFingertip | null = null;
   for (const hand of frame.hands) {
     for (const i of FINGERTIP_LANDMARK_INDICES) {
       const tip = hand.landmarks[i];
-      if (lowest === null || tip.y > lowest.y) {
-        lowest = { x: tip.x, y: tip.y };
+      const nearerKeys = best === null || (MIRROR_VIEW ? tip.y < best.y : tip.y > best.y);
+      if (nearerKeys) {
+        best = { x: tip.x, y: tip.y };
       }
     }
   }
-  return lowest;
+  return best;
 }
 
 /**
