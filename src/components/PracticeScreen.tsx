@@ -41,6 +41,8 @@ import {
   type NoteOnMark,
 } from "./drawLandmarks";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { collectLastFingerMisses } from "./fingerMiss";
+import { FingerMissView } from "./FingerMissView";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { isRealKeyboardConnected, midiStatusText } from "./useMidiDevices";
 import { ResultScreen } from "./ResultScreen";
@@ -386,6 +388,8 @@ function PracticeCore({
   const current = judge.getCurrentEvent();
   const counts = judge.getCounts();
   const view = lastEntry ? judgmentView(lastEntry) : null;
+  // ミスした指の図(F-12)。やり直し・小節指定開始・曲切替ではログが消えるので、図も自動で消える
+  const fingerMisses = collectLastFingerMisses(judge.getLog());
 
   /** 曲を切り替えるときの共通リセット(曲の追加・削除でも同じ状態に戻す) */
   const switchSong = (next: Song) => {
@@ -480,7 +484,13 @@ function PracticeCore({
 
       {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
       <div className="practice-top">
-        <div className="practice-cam">{cameraArea}</div>
+        <div className="practice-cam">
+          {cameraArea}
+          {/* ミスした指の図(F-12)。和音の途中のミスが次の打鍵で消えないよう、
+              直前の 1 打鍵ではなく判定ログから「最後にミスしたイベント」を取り出す。
+              横持ちではカメラ映像に重ねて出すので、画面の高さは増えない */}
+          {fingerMisses && <FingerMissView handMisses={fingerMisses} />}
+        </div>
         <div className="practice-info">
 
       {/* 進行位置(遠目でも分かる大きな表示) */}

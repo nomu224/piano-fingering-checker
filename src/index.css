@@ -114,6 +114,26 @@ input {
   max-width: 640px;
 }
 
+/* ---- ミスした指の図(FingerMissView / 仕様書 F-12)----
+   既定(縦持ち・狭い画面)は通常の流れで、カメラ映像の下に出す。
+   横持ちだけカメラに重ねる(下のメディアクエリ)。画面の高さを増やさないため */
+.practice-cam {
+  position: relative;
+}
+
+.finger-miss-overlay {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: rgba(20, 20, 30, 0.85);
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  /* 下にあるボタン(カメラの再試行など)を押せなくしないため */
+  pointer-events: none;
+}
+
 /* ---- 楽譜(ScoreView / 仕様書 F-11)----
    楽譜は黒い音符を描くため、背景を白にする(アプリ本体は暗い配色のため) */
 .score-view {
@@ -194,6 +214,21 @@ input {
   /* 画面の高さの約 1/3 に収まるよう、縦横比(4:3)から幅を逆算する */
   .practice-cam .cam-frame {
     width: min(100%, calc(36dvh * 4 / 3));
+  }
+
+  /* ミスした指の図は、横持ちではカメラ映像に重ねる(画面の高さを増やさないため。F-12)。
+     カメラ映像の下にあるプライバシー表記や再試行ボタンを隠さないよう、上寄せで置く */
+  .finger-miss-overlay {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    /* 図とキャプションを縦に積む。横並びだと幅を取りすぎて映像を広く覆うため
+       (片手のミスなら幅 110px 程度で済む) */
+    flex-direction: column;
+    gap: 4px;
+    max-height: 60dvh;
+    overflow: hidden;
+    margin-bottom: 0;
   }
 
   /* 楽譜を出しているときは、楽譜(左)とカメラ・練習情報(右)を左右に並べる。
