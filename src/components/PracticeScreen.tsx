@@ -388,8 +388,10 @@ function PracticeCore({
   const current = judge.getCurrentEvent();
   const counts = judge.getCounts();
   const view = lastEntry ? judgmentView(lastEntry) : null;
-  // ミスした指の図(F-12)。やり直し・小節指定開始・曲切替ではログが消えるので、図も自動で消える
+  // ミスした指の表示(F-12)。やり直し・小節指定開始・曲切替ではログが消えるので、色も自動で消える
   const fingerMisses = collectLastFingerMisses(judge.getLog());
+  // 直前の打鍵が運指ミスなら、文字の判定表示は省く(指の表示と同じ内容になるため)
+  const isFingerMiss = lastEntry?.fingering.kind === "miss";
 
   /** 曲を切り替えるときの共通リセット(曲の追加・削除でも同じ状態に戻す) */
   const switchSong = (next: Song) => {
@@ -484,13 +486,7 @@ function PracticeCore({
 
       {/* 横画面ではカメラ(左)と情報(右)を左右に並べる。縦画面では従来どおり縦積み */}
       <div className="practice-top">
-        <div className="practice-cam">
-          {cameraArea}
-          {/* ミスした指の図(F-12)。和音の途中のミスが次の打鍵で消えないよう、
-              直前の 1 打鍵ではなく判定ログから「最後にミスしたイベント」を取り出す。
-              横持ちではカメラ映像に重ねて出すので、画面の高さは増えない */}
-          {fingerMisses && <FingerMissView handMisses={fingerMisses} />}
-        </div>
+        <div className="practice-cam">{cameraArea}</div>
         <div className="practice-info">
 
       {/* 進行位置(遠目でも分かる大きな表示) */}
@@ -514,7 +510,7 @@ function PracticeCore({
               {current.notes.map((n) => (
                 <span key={`${n.midi}-${n.hand}`} style={{ marginRight: 24 }}>
                   {noteName(n.midi)}
-                  <span style={{ fontSize: 22, color: "#80cbc4" }}>
+                  <span className="next-note-sub" style={{ color: "#80cbc4" }}>
                     (指{n.finger ?? "-"} / {n.hand === "R" ? "右" : "左"})
                   </span>
                 </span>
@@ -529,16 +525,17 @@ function PracticeCore({
 
       {/* 直前の判定結果 */}
       <div
-        style={{
-          minHeight: 44,
-          margin: "8px 0",
-          fontSize: 26,
-          fontWeight: "bold",
-          color: view?.color ?? "#666",
-        }}
+        className="judgment-text"
+        style={{ fontWeight: "bold", color: view?.color ?? "#666" }}
       >
-        {view?.text ?? "鍵盤を押すと判定が始まります"}
+        {/* 運指ミスのときは、同じ内容を下の指の表示(F-12)が出すので文字は省く */}
+        {isFingerMiss ? "" : (view?.text ?? "鍵盤を押すと判定が始まります")}
       </div>
+
+      {/* ミスした指の表示(F-12)。左右の手の指を常に並べ、ミスした指に色を付ける。
+          和音の途中のミスが次の打鍵で消えないよう、直前の 1 打鍵ではなく
+          判定ログから「最後にミスしたイベント」を取り出している */}
+      {calibration && <FingerMissView handMisses={fingerMisses ?? []} />}
 
       {/* 集計(F-06 の速報値)。ヘッダが 2 行になるのを避けるため、練習情報の列に置く */}
       <div style={{ fontSize: 13, color: "#aaa" }}>

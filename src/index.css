@@ -121,17 +121,20 @@ input {
   position: relative;
 }
 
-.finger-miss-overlay {
+.finger-strip {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  background: rgba(20, 20, 30, 0.85);
+  gap: 10px;
+  align-items: center;
+  background: #16161f;
   border: 1px solid #555;
   border-radius: 8px;
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  /* 下にあるボタン(カメラの再試行など)を押せなくしないため */
-  pointer-events: none;
+  padding: 4px 6px;
+  margin: 4px 0;
+}
+
+.finger-strip-caption {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ---- 楽譜(ScoreView / 仕様書 F-11)----
@@ -147,6 +150,19 @@ input {
 /* 「次に弾く音」の大きさ。遠目でも読めるようにする(仕様書 9 章) */
 .next-note {
   font-size: clamp(32px, 4.5vw, 56px);
+}
+
+/* 「(指1 / 右)」の部分 */
+.next-note-sub {
+  font-size: 22px;
+}
+
+/* 直前の判定結果(「正解」「音ミス」など)。高さを決め打ちして、
+   出たり消えたりでレイアウトが跳ねないようにする */
+.judgment-text {
+  min-height: 44px;
+  margin: 8px 0;
+  font-size: 26px;
 }
 
 /* 楽譜を出しているときは場所を譲る */
@@ -218,17 +234,21 @@ input {
 
   /* ミスした指の図は、横持ちではカメラ映像に重ねる(画面の高さを増やさないため。F-12)。
      カメラ映像の下にあるプライバシー表記や再試行ボタンを隠さないよう、上寄せで置く */
-  .finger-miss-overlay {
-    position: absolute;
-    top: 24px;
-    right: 0;
-    /* 図とキャプションを縦に積む。横並びだと幅を取りすぎて映像を広く覆うため
-       (片手のミスなら幅 110px 程度で済む) */
-    flex-direction: column;
-    gap: 4px;
-    max-height: 60dvh;
-    overflow: hidden;
-    margin-bottom: 0;
+  /* 楽譜を出しているときは楽譜が主役なので、「次に弾く音」は小さくする(9 章)。
+     空いた場所にミスした指の表示(F-12)を入れる */
+  .with-score .next-note {
+    font-size: clamp(18px, 2.2vw, 26px);
+  }
+
+  .with-score .next-note-sub {
+    font-size: 13px;
+  }
+
+  /* 楽譜と指の表示があるときは、判定の文字も詰める */
+  .with-score .judgment-text {
+    min-height: 24px;
+    margin: 4px 0;
+    font-size: 18px;
   }
 
   /* 楽譜を出しているときは、楽譜(左)とカメラ・練習情報(右)を左右に並べる。
@@ -256,8 +276,10 @@ input {
     display: block;
   }
 
+  /* 楽譜と指の表示(F-12)に場所を譲るため、カメラは小さめにする。
+     カメラは「手が写っているか」の確認用なので、小さくても用は足りる */
   .with-score .practice-cam .cam-frame {
-    width: min(100%, calc(22dvh * 4 / 3));
+    width: min(100%, calc(16dvh * 4 / 3));
   }
 
   /* キャリブレーション画面: カメラ(左)と手順・操作(右)を左右に並べる */
