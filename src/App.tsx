@@ -13,7 +13,7 @@ import { useMidiDevices } from "./components/useMidiDevices";
 import { DEFAULT_SETTINGS } from "./core/constants";
 import type { PracticeSettings } from "./core/types";
 
-type DebugTab = "practice-p1" | "camera" | "calibration" | "practice";
+type DebugTab = "practice-p1" | "camera" | "calibration" | "practice" | "record";
 
 export default function App() {
   const [tab, setTab] = useState<DebugTab>("practice");
@@ -83,6 +83,10 @@ export default function App() {
         <button className={tabClass(tab === "practice")} onClick={() => setTab("practice")}>
           P4: 練習
         </button>
+        {/* 記録のみモード(F-13)。評価実験で「支援なし」の条件を測るための別ページ */}
+        <button className={tabClass(tab === "record")} onClick={() => setTab("record")}>
+          実験: 記録のみ
+        </button>
       </div>
       {tab === "practice-p1" && <PracticeDebug />}
       {tab === "camera" && <CameraDebug />}
@@ -96,6 +100,22 @@ export default function App() {
       )}
       {tab === "practice" && (
         <PracticeScreen
+          key="practice"
+          calibrationInfo={calibrationInfo}
+          settings={settings}
+          onChangeSettings={setSettings}
+          midi={midi}
+        />
+      )}
+      {/* 記録のみモード(F-13)。
+          ※ 通常の練習とは別のスロットに置くこと。同じスロットで recordOnly だけ
+            切り替えると state(判定ログ)が残り、通常練習のログが実験データに混ざる。
+            キャリブレーション・設定・MIDI は App が持つものを共有する
+            (記録のみのためにキャリブレーションをやり直す必要はない) */}
+      {tab === "record" && (
+        <PracticeScreen
+          key="record"
+          recordOnly
           calibrationInfo={calibrationInfo}
           settings={settings}
           onChangeSettings={setSettings}

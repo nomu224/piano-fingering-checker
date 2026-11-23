@@ -42,6 +42,7 @@ import {
 } from "./drawLandmarks";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { collectLastFingerMisses } from "./fingerMiss";
+import { feedbackToPlay } from "./feedbackGate";
 import { FingerMissView } from "./FingerMissView";
 import { MidiDeviceSelector } from "./MidiDeviceSelector";
 import { isRealKeyboardConnected, midiStatusText } from "./useMidiDevices";
@@ -70,6 +71,12 @@ interface Props {
   onChangeSettings: (next: PracticeSettings) => void;
   /** MIDI デバイスの選択状態(F-01)。App が保持する */
   midi: UseMidiDevices;
+  /**
+   * 記録のみモード(仕様書 F-13)。評価実験で「支援なし」の条件を測るために、
+   * 判定とログの記録は通常どおり行いながら、フィードバック(音・判定表示・指の図・集計)を
+   * 一切出さない。既定 false = 通常の練習。
+   */
+  recordOnly?: boolean;
 }
 
 export function PracticeScreen({
@@ -77,6 +84,7 @@ export function PracticeScreen({
   settings,
   onChangeSettings,
   midi,
+  recordOnly = false,
 }: Props) {
   if (calibrationInfo) {
     return (
@@ -85,6 +93,7 @@ export function PracticeScreen({
         settings={settings}
         onChangeSettings={onChangeSettings}
         midi={midi}
+        recordOnly={recordOnly}
       />
     );
   }
@@ -97,6 +106,7 @@ export function PracticeScreen({
       settings={settings}
       onChangeSettings={onChangeSettings}
       midi={midi}
+      recordOnly={recordOnly}
       cameraArea={
         <div style={{ background: "#3e3a26", padding: 12, borderRadius: 8, marginBottom: 12 }}>
           <strong style={{ color: "#ffd54f" }}>音判定のみモードで練習中</strong>
@@ -116,11 +126,13 @@ function PracticeWithCamera({
   settings,
   onChangeSettings,
   midi,
+  recordOnly,
 }: {
   info: CalibrationInfo;
   settings: PracticeSettings;
   onChangeSettings: (next: PracticeSettings) => void;
   midi: UseMidiDevices;
+  recordOnly: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markRef = useRef<NoteOnMark | null>(null);
@@ -207,9 +219,13 @@ function PracticeWithCamera({
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         />
       </div>
+      {/* 【F-13】記録のみモードでは打鍵マーカー(黄線・緑丸)を出さないので、説明からも外す。
+          「処理速度 ◯ fps」は残す: 記録のみでは判定表示が無いため、
+          カメラが動いているかを実験者が確かめる唯一の手がかりになる */}
       {state === "running" && (
         <p style={{ fontSize: 12, color: "#777", margin: "4px 0 0" }}>
-          処理速度: {fps} fps | 白線=鍵盤の推定位置 / 黄線=押した音 / 緑丸=推定に使った指先 |
+          処理速度: {fps} fps | 白線=鍵盤の推定位置
+          {recordOnly ? "" : " / 黄線=押した音 / 緑丸=推定に使った指先"} |
           カメラ映像は端末の外に送信されません
         </p>
       )}
@@ -228,6 +244,7 @@ function PracticeWithCamera({
       onChangeSettings={onChangeSettings}
       midi={midi}
       cameraArea={cameraArea}
+      recordOnly={recordOnly}
     />
   );
 }
@@ -248,6 +265,8 @@ interface CoreProps {
   midi: UseMidiDevices;
   /** カメラプレビュー or モード表示のバナー */
   cameraArea: ReactNode;
+  /** 記録のみモード(F-13)。フィードバックを一切出さない */
+  recordOnly?: boolean;
 }
 
 function PracticeCore({
@@ -258,6 +277,7 @@ function PracticeCore({
   onChangeSettings,
   midi,
   cameraArea,
+  recordOnly = false,
 }: CoreProps) {
   // 曲一覧は state に持つ。getAllSongs() を毎描画で呼ぶと曲オブジェクトの参照が毎回変わり、
   // 判定エンジンが作り直されて練習の進行が消えるため、追加・削除のときだけ作り直す
@@ -291,6 +311,10 @@ function PracticeCore({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 楽譜の表示(F-11)。判定には関係しない表示の設定なので、PracticeSettings には入れない
   const [showScore, setShowScore] = useState(true);
+  // 参加者 ID(F-13)。入力欄は結果画面に描くが、state はここに持つ。
+  // 結果画面は閉じると消えてしまい、2 回弾いてもらうときに打ち直しになるため。
+  // 判定・ログには一切使わない(保存するファイルの名前と中身にだけ入る)
+  const [participantId, setParticipantId] = useState("");
   // 楽譜の中身は曲ごとに読み込む(無い曲は null。従来の表示で練習できる)
   const musicXml = useMemo(
     () => (showScore ? getSongMusicXml(song.id) : null),
@@ -312,14 +336,17 @@ function PracticeCore({
   settingsRef.current = settings;
   const showResultRef = useRef(showResult);
   showResultRef.current = showResult;
+  const recordOnlyRef = useRef(recordOnly);
+  recordOnlyRef.current = recordOnly;
 
   // 設定の変更を judge / feedback に即反映(セッションは切らない)
   useEffect(() => {
     judgeRef.current?.setUndeterminedAsMiss(settings.undeterminedAsMiss);
     judgeRef.current?.setTargetHands(settings.targetHands);
-    feedbackRef.current?.setEnabled(settings.feedbackEnabled);
+    // 【F-13】記録のみモードでは、設定に関わらずフィードバック音を鳴らさない
+    feedbackRef.current?.setEnabled(recordOnly ? false : settings.feedbackEnabled);
     feedbackRef.current?.setVolume(settings.feedbackVolume);
-  }, [settings]);
+  }, [settings, recordOnly]);
 
   // Note On → 判定 → フィードバック音。
   // バーチャル鍵盤と実 MIDI デバイスの両方を購読する(仕様書 F-02: 判定側は入力源を区別しない)。
@@ -343,17 +370,25 @@ function PracticeCore({
       const frame = calib ? getFrameRef.current(timestampMs) : null;
       const entry = judge.handleNoteOn(note, timestampMs, frame, calib);
 
-      // フィードバック音(F-05)。判定は同期なので Note On から 200ms 以内(10 章)
-      if (entry.feedback === "noteMiss") {
+      // フィードバック音(F-05)。判定は同期なので Note On から 200ms 以内(10 章)。
+      // 鳴らすかどうかの判断は feedbackGate(テストあり)に任せる。
+      // 【F-13】記録のみモードでは必ず "none" が返る(=音を出さない)
+      const toPlay = feedbackToPlay(
+        entry.feedback,
+        recordOnlyRef.current,
+        settingsRef.current.clickOnCorrect,
+      );
+      if (toPlay === "noteMiss") {
         feedbackRef.current!.noteMiss();
-      } else if (entry.feedback === "fingerMiss") {
+      } else if (toPlay === "fingerMiss") {
         feedbackRef.current!.fingerMiss();
-      } else if (entry.feedback === "correct" && settingsRef.current.clickOnCorrect) {
-        // 正解は既定で無音。設定 ON のときだけクリック音(F-05)
+      } else if (toPlay === "click") {
         feedbackRef.current!.click();
       }
 
-      onMarkRef.current(buildMark(entry, frame, calib));
+      // 【F-13】記録のみモードでは打鍵マーカーを出さない
+      // (押した鍵盤の位置と推定に使った指先が見えると、ミスの手がかりになる)
+      onMarkRef.current(recordOnlyRef.current ? null : buildMark(entry, frame, calib));
       setLastEntry(entry);
       setVersion((v) => v + 1);
 
@@ -374,7 +409,9 @@ function PracticeCore({
       midiInput.addNoteOffListener(handleNoteOff),
     ];
     return () => offs.forEach((off) => off());
-  }, [midiInput]);
+    // recordOnly はマウント中に変わらない(タブごとに別インスタンス)が、
+    // 依存に入れておく(片方だけ入れると取り違えたときに静かに音が鳴るため)
+  }, [midiInput, recordOnly]);
 
   // 画面離脱時に鳴っている参照音を止める。
   // ※ AudioContext はアプリ共有(F-08)なので閉じてはいけない。
@@ -461,6 +498,22 @@ function PracticeCore({
       >
         {/* 「練習」はタブに出ているので、ヘッダは曲名から始める(横持ちで 1 行に収めるため) */}
         <strong style={{ fontSize: 16 }}>{song.title}</strong>
+        {/* 【F-13】実験者が条件を取り違えないよう、このモードであることを明示する。
+            ヘッダは 1 行に収める前提なので、これ以上要素を増やさない(9 章) */}
+        {recordOnly && (
+          <span
+            style={{
+              fontSize: 12,
+              background: "#4a3b6b",
+              color: "#d1c4e9",
+              border: "1px solid #7e57c2",
+              borderRadius: 4,
+              padding: "2px 6px",
+            }}
+          >
+            記録のみ(フィードバックなし)
+          </span>
+        )}
         {/* 楽譜を出す設定なのに楽譜データが無い曲のとき(F-11。場所を取らないよう 1 行で) */}
         {showScore && !musicXml && (
           <span style={{ fontSize: 12, color: "#999" }}>楽譜なし</span>
@@ -493,7 +546,7 @@ function PracticeCore({
       <div style={{ margin: "8px 0" }}>
         {finished ? (
           <div style={{ fontSize: 40, fontWeight: "bold", color: "#42a5f5" }}>
-            演奏終了 🎉(結果画面 S-05 は P5 で実装)
+            演奏終了 🎉
           </div>
         ) : (
           <div>
@@ -523,25 +576,31 @@ function PracticeCore({
         )}
       </div>
 
-      {/* 直前の判定結果 */}
-      <div
-        className="judgment-text"
-        style={{ fontWeight: "bold", color: view?.color ?? "#666" }}
-      >
-        {/* 運指ミスのときは、同じ内容を下の指の表示(F-12)が出すので文字は省く */}
-        {isFingerMiss ? "" : (view?.text ?? "鍵盤を押すと判定が始まります")}
-      </div>
+      {/* 直前の判定結果。【F-13】記録のみモードでは出さない */}
+      {!recordOnly && (
+        <div
+          className="judgment-text"
+          style={{ fontWeight: "bold", color: view?.color ?? "#666" }}
+        >
+          {/* 運指ミスのときは、同じ内容を下の指の表示(F-12)が出すので文字は省く */}
+          {isFingerMiss ? "" : (view?.text ?? "鍵盤を押すと判定が始まります")}
+        </div>
+      )}
 
       {/* ミスした指の表示(F-12)。左右の手の指を常に並べ、ミスした指に色を付ける。
           和音の途中のミスが次の打鍵で消えないよう、直前の 1 打鍵ではなく
           判定ログから「最後にミスしたイベント」を取り出している */}
-      {calibration && <FingerMissView handMisses={fingerMisses ?? []} />}
+      {/* 【F-13】記録のみモードでは出さない */}
+      {calibration && !recordOnly && <FingerMissView handMisses={fingerMisses ?? []} />}
 
-      {/* 集計(F-06 の速報値)。ヘッダが 2 行になるのを避けるため、練習情報の列に置く */}
-      <div style={{ fontSize: 13, color: "#aaa" }}>
-        打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} / 判定不能{" "}
-        {counts.undetermined}
-      </div>
+      {/* 集計(F-06 の速報値)。ヘッダが 2 行になるのを避けるため、練習情報の列に置く。
+          【F-13】記録のみモードでは出さない */}
+      {!recordOnly && (
+        <div style={{ fontSize: 13, color: "#aaa" }}>
+          打鍵 {counts.totalNoteOns} / 音ミス {counts.noteMisses} / 運指ミス {counts.fingerMisses} /
+          判定不能 {counts.undetermined}
+        </div>
+      )}
         </div>
       </div>
       </div>
@@ -568,8 +627,12 @@ function PracticeCore({
           開始
         </button>
         <button onClick={() => setShowResult(true)} style={buttonStyle}>
-          結果を見る
+          {recordOnly ? "記録を保存" : "結果を見る"}
         </button>
+        {/* 【F-13】タブを移るとログが消えるので、保存を促す(短く書く。長いと横持ちで折り返す) */}
+        {recordOnly && (
+          <span style={{ color: "#999", fontSize: 12 }}>保存はこのページで(移動すると消えます)</span>
+        )}
         {message && <span style={{ color: "#ffb300", fontSize: 14 }}>{message}</span>}
       </div>
 
@@ -620,8 +683,9 @@ function PracticeCore({
         <VirtualKeyboard keyboard={keyboardRef.current} />
       </CollapsibleSection>
 
-      {/* 判定ログ(直近分。全ログはメモリ保持、JSON ダウンロードは P5) */}
-      {judge.getLog().length > 0 && (
+      {/* 判定ログ(直近分。全ログはメモリに保持し、結果画面から JSON で保存できる)。
+          【F-13】記録のみモードでは出さない(ミスが読み取れてしまうため) */}
+      {!recordOnly && judge.getLog().length > 0 && (
         <CollapsibleSection
           title="判定ログ"
           summary={`直近 ${Math.min(8, judge.getLog().length)} 件 / 全 ${judge.getLog().length} 件`}
@@ -650,6 +714,9 @@ function PracticeCore({
           finished={finished}
           onRetry={restart}
           onClose={() => setShowResult(false)}
+          recordOnly={recordOnly}
+          participantId={participantId}
+          onChangeParticipantId={setParticipantId}
         />
       )}
 

@@ -5,6 +5,10 @@
 // - 譜面位置ごとのミス一覧(「◯小節目の◯番目の音: 3 の指のところを 2 で弾いた」)
 // - 判定ログの JSON ダウンロード(卒業論文の精度評価実験でデータとして使う)
 // 練習画面(PracticeCore)の上に重ねて表示し、判定ログ・カメラは生かしたままにする。
+//
+// 【記録のみモード(F-13)】集計とミス一覧は出さず、JSON の保存と操作だけを出す。
+// 参加者に結果を見せないため。参加者 ID の入力欄もここに置く
+// (state は練習画面が持つ。この画面は閉じると消えるため)。
 
 import type {
   JudgmentCounts,
@@ -27,6 +31,11 @@ interface Props {
   onRetry: () => void;
   /** 練習画面へ戻る(セッションはそのまま) */
   onClose: () => void;
+  /** 記録のみモード(F-13)。集計とミス一覧を出さない */
+  recordOnly?: boolean;
+  /** 参加者 ID(F-13)。state は練習画面が持つ */
+  participantId?: string;
+  onChangeParticipantId?: (next: string) => void;
 }
 
 /** 譜面位置の表示(F-06 の文言) */
@@ -84,8 +93,12 @@ export function ResultScreen({
   finished,
   onRetry,
   onClose,
+  recordOnly = false,
+  participantId = "",
+  onChangeParticipantId,
 }: Props) {
-  const missList = buildMissList(song, log);
+  // 記録のみモードでは作らない(表示しないため)
+  const missList = recordOnly ? [] : buildMissList(song, log);
 
   /** 判定ログの JSON ダウンロード(F-06。卒論の精度評価実験用)
       中身とファイル名の組み立ては resultJson.ts(純 TS・テストあり)に任せる */
@@ -96,8 +109,8 @@ export function ResultScreen({
       log,
       settings,
       finished,
-      recordOnly: false,
-      participantId: "",
+      recordOnly,
+      participantId,
       now: new Date(),
     };
     const blob = new Blob([JSON.stringify(buildResultJson(input), null, 2)], {
@@ -135,11 +148,35 @@ export function ResultScreen({
         }}
       >
         <h2 style={{ margin: "0 0 4px", fontSize: 22 }}>
-          結果サマリー(S-05){finished ? "" : " — 中断"}
+          {recordOnly ? "記録しました(記録のみモード)" : "結果サマリー(S-05)"}
+          {finished ? "" : " — 中断"}
         </h2>
         <p style={{ margin: "0 0 12px", fontSize: 14, color: "#aaa" }}>曲: {song.title}</p>
 
-        {/* 集計(F-06) */}
+        {/* 記録のみモード(F-13): 結果は出さず、保存のための入力と案内だけ出す */}
+        {recordOnly && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: "0 0 10px", fontSize: 14, color: "#ffd54f" }}>
+              このモードでは結果を画面に出しません。下のボタンで記録を保存してください。
+            </p>
+            <label style={{ fontSize: 14 }}>
+              参加者 ID:{" "}
+              <input
+                type="text"
+                value={participantId}
+                onChange={(e) => onChangeParticipantId?.(e.target.value)}
+                placeholder="P01"
+                style={{ fontSize: 14, padding: 4, width: 120 }}
+              />
+            </label>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#999" }}>
+              氏名ではなく記号(P01 など)を入れてください。ファイル名と記録の中に入ります
+            </p>
+          </div>
+        )}
+
+        {/* 集計(F-06)。記録のみモードでは出さない(F-13) */}
+        {!recordOnly && (
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
           {[
             ["総打鍵数", counts.totalNoteOns, "#eee"],
@@ -155,8 +192,11 @@ export function ResultScreen({
             </div>
           ))}
         </div>
+        )}
 
-        {/* 譜面位置ごとのミス一覧(F-06) */}
+        {/* 譜面位置ごとのミス一覧(F-06)。記録のみモードでは出さない(F-13) */}
+        {!recordOnly && (
+        <>
         <h3 style={{ fontSize: 16, margin: "0 0 4px" }}>ミス一覧</h3>
         {missList.length === 0 ? (
           <p style={{ fontSize: 14, color: "#8bc34a" }}>ミスはありませんでした 🎉</p>
@@ -175,13 +215,21 @@ export function ResultScreen({
             ))}
           </ul>
         )}
+        </>
+        )}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          <button onClick={downloadJson} style={buttonStyle}>
+          <button
+            onClick={downloadJson}
+            style={recordOnly ? { ...buttonStyle, background: "#5c6bc0" } : buttonStyle}
+          >
             判定ログを JSON でダウンロード
           </button>
-          <button onClick={onRetry} style={{ ...buttonStyle, background: "#5c6bc0" }}>
-            もう一度練習する
+          <button
+            onClick={onRetry}
+            style={recordOnly ? buttonStyle : { ...buttonStyle, background: "#5c6bc0" }}
+          >
+            もう一度{recordOnly ? "弾く" : "練習する"}
           </button>
           <button onClick={onClose} style={buttonStyle}>
             閉じる
