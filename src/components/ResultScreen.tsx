@@ -13,6 +13,7 @@ import type {
   Song,
 } from "../core/types";
 import { noteName } from "../midi/virtualKeyboard";
+import { buildResultFileName, buildResultJson, type ResultJsonInput } from "./resultJson";
 
 interface Props {
   song: Song;
@@ -86,29 +87,26 @@ export function ResultScreen({
 }: Props) {
   const missList = buildMissList(song, log);
 
-  /** 判定ログの JSON ダウンロード(F-06。卒論の精度評価実験用) */
+  /** 判定ログの JSON ダウンロード(F-06。卒論の精度評価実験用)
+      中身とファイル名の組み立ては resultJson.ts(純 TS・テストあり)に任せる */
   const downloadJson = () => {
-    const data = {
-      songId: song.id,
-      songTitle: song.title,
-      exportedAt: new Date().toISOString(),
-      finished,
-      settings,
+    const input: ResultJsonInput = {
+      song,
       counts,
       log,
+      settings,
+      finished,
+      recordOnly: false,
+      participantId: "",
+      now: new Date(),
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+    const blob = new Blob([JSON.stringify(buildResultJson(input), null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const stamp = new Date()
-      .toISOString()
-      .slice(0, 16)
-      .replaceAll(":", "-")
-      .replace("T", "_");
-    a.download = `practice-log_${song.id}_${stamp}.json`;
+    a.download = buildResultFileName(input);
     a.click();
     URL.revokeObjectURL(url);
   };
