@@ -13,14 +13,16 @@
 
 - 記録のみのページで曲を弾いても、**音・文字・図・集計・ログ一覧のどれでもミスが分からない**
 - 弾いた内容は通常モードと**同じ判定結果・同じログ**になる(判定を変えていない)
-- 終了時に**集計を出さず**、判定ログの JSON を保存できる。JSON に記録のみモードである印と参加者 ID が入る
-- 通常の練習ページの見た目・動作が**まったく変わらない**
-- `npm run test` が通る
+- 終了時に**集計とミス一覧を出さず**、判定ログの JSON を保存できる。
+  JSON に記録のみモードである印と参加者 ID が入る
+- **通常の練習ページの画面と操作が変わらない**
+  (JSON には条件判別のため `mode: "normal"` を足すので、保存ファイルの中身だけは変わる)
+- `npm run test` が通る(新規テストを含む)
 
 ## 仕様書の該当章
 
 - **F-13**(全文): 別ページ / 出すもの・出さないもの / 判定とログは通常と同一 /
-  終了時は JSON ダウンロードのみ / モードの明示 / JSON に印と参加者 ID
+  終了時は集計とミス一覧を出さず JSON ダウンロードと操作だけ / モードの明示 / JSON に印と参加者 ID
 - F-05・F-06・F-07: **判定内容と設定の意味は変更しない**(表示と音を止めるだけ)
 - 7.1 / 7.3 / `src/core/`: **変更しない**
 - 9 章: 画面一覧に S-07。横持ちでスクロールを出さない
@@ -34,27 +36,77 @@ App のタブを 1 つ増やして `recordOnly` 付きで描く。
 
 タブを切り替えると練習画面はアンマウントされるため、**記録のみのページは独立したセッション**になる
 (通常練習のログと混ざらない)。逆に、**弾き終わったらそのページで JSON を保存する**必要がある
-(タブを移ると消える)。この注意は画面に 1 行書く。
+(タブを移ると消える)。この注意は操作バーに 1 行書く。
 
 ## やらないこと
 
 - 判定ロジック・スコアフォロー・運指判定の変更(`src/core/` は触らない)
 - 実験の手順書・同意書・アンケートの作成(別途)
 - 条件の自動割り当て(どちらの曲をどちらのモードで弾くかは実験者が決める)
-- サーバーへのログ送信(JSON 手動保存のまま。個人情報を扱わない方針)
-- 通常モードの表示・設定項目の変更
+- サーバーへのログ送信・自動保存・localStorage への退避(JSON 手動保存のまま)
+- 通常モードの画面・設定項目の変更
 
 ## 実装内容
 
-### 1. `src/components/PracticeScreen.tsx`(変更)
+### 1. `src/components/feedbackGate.ts`(新規・純 TS・テスト対象)
+
+**音漏れがこの機能の最大のリスク**(記録のみモードは「鳴らないのが正常」なので、
+壊れても実験が終わるまで誰も気付かない)。そこで鳴らすかどうかの判断を純関数に切り出し、
+**テストで固定する**。
+
+```ts
+/** この打鍵で鳴らすべき音(none = 鳴らさない) */
+export type FeedbackToPlay = "none" | "noteMiss" | "fingerMiss" | "click";
+export function feedbackToPlay(
+  feedback: JudgmentEntry["feedback"],
+  recordOnly: boolean,
+  clickOnCorrect: boolean,
+): FeedbackToPlay;
+```
+
+- `recordOnly === true` なら**入力の全組み合わせで必ず `"none"`**
+- 通常モードの挙動は現行の分岐(`noteMiss` / `fingerMiss` / `correct` かつ `clickOnCorrect`)と同一
+- `JudgmentEntry["feedback"]` は `src/core/types.ts` にある既存の型を使う(`src/core` は変更しない)
+
+### 2. `src/components/resultJson.ts`(新規・純 TS・テスト対象)
+
+JSON の組み立てとファイル名の生成を `ResultScreen` から切り出し、テストできるようにする。
+**`Blob` / `URL` / `document` は持ち込まない**(ダウンロードの実行は `ResultScreen` に残す)。
+
+```ts
+export interface ResultJsonInput {
+  song: Song; counts: JudgmentCounts; log: readonly JudgmentEntry[];
+  settings: PracticeSettings; finished: boolean;
+  recordOnly: boolean; participantId: string;
+  /** 日時は引数で受け取る(テストで固定できるようにするため。内部で new Date() しない) */
+  now: Date;
+}
+export interface ResultJson {
+  songId: string; songTitle: string; exportedAt: string;
+  mode: "recordOnly" | "normal"; participantId: string;
+  finished: boolean; settings: PracticeSettings;
+  counts: JudgmentCounts; log: readonly JudgmentEntry[];
+}
+export function buildResultJson(input: ResultJsonInput): ResultJson;
+export function buildResultFileName(input: ResultJsonInput): string;
+```
+
+- `mode` は `recordOnly` / `normal` のどちらか
+- `participantId` は未入力なら**空文字**で入れる(キーは常に存在させる)
+- ファイル名に使う ID は**英数字・ハイフン・アンダースコアだけ**に落とす
+  (それ以外は `_` に置換。16 文字で切る)。記録のみは `rec_` で始める
+- `counts` と `log` は**モードによって変えない**(同じ基準で比べるため)
+
+### 3. `src/components/PracticeScreen.tsx`(変更)
 
 - `Props` / `CoreProps` に `recordOnly?: boolean` を追加(既定 false = 通常の練習)。
   `PracticeScreen` → `PracticeWithCamera` → `PracticeCore` へ素通しで渡す
-- **音を止める**: 設定反映の `useEffect` を
-  `feedbackRef.current?.setEnabled(recordOnly ? false : settings.feedbackEnabled)` にする。
-  さらに Note On ハンドラのフィードバック音の呼び出しを `if (!recordOnlyRef.current) { ... }` で囲む
-  (設定変更のタイミングに関わらず鳴らないことを 2 か所で保証する)。
-  **参照音(F-08)は止めない**(押した音が鳴らないと演奏できない)
+- **音を止める**(2 か所で保証する):
+  - Note On ハンドラのフィードバック音を `feedbackToPlay(...)` の戻り値での分岐に置き換える
+  - 設定反映の `useEffect` を `setEnabled(recordOnly ? false : settings.feedbackEnabled)` にする
+  - **`recordOnly` を 2 つの `useEffect`(設定反映・Note On 購読)の依存配列に入れる**。
+    別スロット + key を守る限りマウント中に値は変わらないが、片方だけ入れるのは一貫しないため
+  - **参照音(F-08)は止めない**(押した音が鳴らないと演奏できない)
 - **打鍵マーカーを出さない**: `onMarkRef.current(recordOnly ? null : buildMark(...))`
   (押した鍵盤の位置と推定に使った指先が見えると、ミスの手がかりになる)
 - **表示を隠す**: 次の要素を `!recordOnly` のときだけ描く
@@ -62,94 +114,119 @@ App のタブを 1 つ増やして `recordOnly` 付きで描く。
   - `FingerMissView`(F-12)
   - 集計の行(打鍵 / 音ミス / 運指ミス / 判定不能)
   - 「判定ログ」の折りたたみ
+  - カメラ下のキャプションのうち `黄線=押した音` と `緑丸=推定に使った指先`
+    (出なくなるので文言が実態と合わなくなるうえ、仕組みの存在を参加者に教えてしまう)
 - **残す**: 楽譜、次に弾く音(指番号つき。紙の楽譜に運指が印刷されているのと同じ情報)、
-  小節位置、カメラ映像、一時停止・やり直し・小節指定開始、準備・バーチャル鍵盤の折りたたみ、⚙ 設定
+  小節位置、カメラ映像と手のランドマーク、一時停止・やり直し・小節指定開始、
+  準備・バーチャル鍵盤の折りたたみ、⚙ 設定
+- **カメラの状態表示は必ず残す**(「カメラ初期化中…」「処理速度 ◯ fps」「カメラのエラー」)。
+  タブを切り替えるとカメラとモデルの起動に数秒かかり、その間に弾くと運指判定が
+  `skipped(noCamera)` で記録される。**記録のみでは判定文字も指の図も隠すので、
+  この状態表示が実験者の唯一の手がかりになる**。ミス情報ではないので F-13 に反しない
 - **モードの明示**: ヘッダに `記録のみ(フィードバックなし)` のバッジを出す。
-  あわせて「弾き終わったらこのページで JSON を保存してください(タブを移ると消えます)」を小さく 1 行
-- **参加者 ID**: ヘッダに短い入力欄(`<input>`、既定は空)。state は `PracticeCore` に持つ。
-  判定には一切使わない
-- 「結果を見る」ボタンのラベルを、記録のみでは「**記録を保存**」にする
+  **ヘッダはこれ以上増やさない**(1 行に収める前提の設計。横持ちでスクロールが出る)
+- 操作バー:「結果を見る」のラベルを記録のみでは「**記録を保存**」にし、
+  その横に小さく「**保存はこのページで(移動すると消えます)**」を出す。
+  操作バーは既に要素が多く `flexWrap` なので、長い文を入れると横持ちで折り返して高さが増える
+- **参加者 ID の state をここに持つ**(`useState("")`)。入力欄は `ResultScreen` に描くが、
+  state をそちらに置くと画面を閉じるたびに消えるため。判定・ログには一切使わない
 - 完走時の自動遷移(`setShowResult(true)`)は**そのまま**(保存の導線になるため)
+- ついでに古い文言を直す:「演奏終了 🎉(結果画面 S-05 は P5 で実装)」の括弧内と、
+  判定ログの折りたたみのコメント「JSON ダウンロードは P5」。どちらも実装済み。
+  記録のみでは完走時の表示が必ず参加者の目に入るため、この機会に消す
 
-### 2. `src/components/ResultScreen.tsx`(変更)
+### 4. `src/components/ResultScreen.tsx`(変更)
 
-- `Props` に `recordOnly?: boolean` と `participantId?: string` を追加
+- `Props` に `recordOnly?: boolean` を追加
+- **参加者 ID の入力欄はこの画面に置く**(練習画面のヘッダには置かない)。
+  ただし **state は `PracticeCore` に持ち、`participantId` / `onChangeParticipantId` を props で受け取る**。
+  この画面は条件レンダリングなので、state をここに持つと「閉じる」「もう一度練習する」で
+  入力済みの ID が消えてしまう(2 回弾かせる運用で打ち直し・打ち忘れの事故になる)。
+  既定は空。判定には一切使わない。
+  「氏名ではなく記号(例: P01)を入れてください」と添える
 - `recordOnly` のとき:
   - 見出しを「記録しました(記録のみモード)」にする
   - **集計(4 つの数字)とミス一覧を描かない**
-  - 「判定ログを JSON でダウンロード」と「閉じる」だけを出す。
-    「もう一度練習する」は**出す**(2 回弾いてもらう場合に必要)
   - 「結果は画面に出しません」と 1 行添える(参加者が不審に思わないように)
-- ダウンロードする JSON に `mode: "recordOnly" | "normal"` と `participantId` を追加。
-  ファイル名を `rec_` + 参加者 ID 付きにする(記録のみのときだけ)。
-  `counts` と `log` は**通常と同じものを入れる**(実験者はあとで集計する)
+  - ボタンは「判定ログを JSON でダウンロード」「もう一度練習する」「閉じる」
+    (F-13: 集計とミス一覧を出さず、ダウンロードと操作だけ)
+- JSON とファイル名の生成は `resultJson.ts` を呼ぶだけにする
 
-### 3. `src/App.tsx`(変更)
+### 5. `src/App.tsx`(変更)
 
 - タブを 1 つ追加: `実験: 記録のみ`(一番右)
-- そのタブでは `<PracticeScreen recordOnly ... />` を描く。
-  キャリブレーション結果・設定・MIDI は **App が持っているものを共有**する
+- `{tab === "record" && <PracticeScreen recordOnly ... />}` を
+  **通常タブとは別のスロットに置く**。同じスロットで `recordOnly={tab === "record"}` のように
+  切り替えてはいけない(state が残り、通常練習のログが記録のみセッションに混ざる)。
+  念のため両方に `key`(`"practice"` / `"record"`)を付ける
+- キャリブレーション結果・設定・MIDI は **App が持っているものを共有**する
   (記録のみのためにキャリブレーションをやり直す必要はない)
-- タブの切り替えは今までどおり条件レンダリング(2 つの練習画面が同時に動くと
-  MIDI の購読が二重になり、1 打鍵が 2 回判定されてしまうため、**同時マウントにはしない**)
-
-### 4. `src/components/resultJson.ts`(新規・純 TS・テスト対象)
-
-JSON の組み立てとファイル名の生成を `ResultScreen` から切り出し、テストできるようにする。
-
-```ts
-export interface ResultJsonInput { song: Song; counts: JudgmentCounts; log: readonly JudgmentEntry[];
-  settings: PracticeSettings; finished: boolean; recordOnly: boolean; participantId: string; now: Date }
-export function buildResultJson(input: ResultJsonInput): object
-export function buildResultFileName(input: ResultJsonInput): string
-```
-
-- `mode` が `recordOnly` / `normal` のどちらかになる
-- 参加者 ID は**ファイル名に使える文字だけ**に落とす(英数字・ハイフン・アンダースコア。
-  それ以外は `_` に置換し、長すぎる場合は 16 文字で切る)。空なら ID 部分を付けない
-- `log` の件数・内容はモードによって変えない(同じ基準で比べるため)
 
 ## テスト
+
+`tests/components/feedbackGate.test.ts`(新規):
+
+- `recordOnly = true` では、`feedback` 4 種 × `clickOnCorrect` 2 通りの**全組み合わせで `"none"`**
+- 通常モードでは `noteMiss` / `fingerMiss` がそのまま返る
+- 通常モードの `correct` は `clickOnCorrect` が true のときだけ `"click"`、false なら `"none"`
+- `feedback: "none"` は常に `"none"`
 
 `tests/components/resultJson.test.ts`(新規):
 
 - 通常モードで `mode: "normal"`、記録のみで `mode: "recordOnly"` になる
 - `counts` と `log` が**モードによって変わらない**(同じ入力なら同じ中身)
-- 参加者 ID が JSON に入る / 空なら空文字のまま入る
+- 参加者 ID が JSON に入る / 未入力なら空文字で入る
 - ファイル名: 記録のみは `rec_` で始まる / ID が入る / 危険な文字(`../`、空白、日本語)が `_` になる /
-  ID が長すぎると切られる / 日時が固定の `now` から作られる
+  ID が長すぎると 16 文字で切られる / 日時が引数の `now` から作られる(テストで固定できる)
 
 既存 231 件が通ること(`src/core` は変更しないため影響なし)。
-表示の出し分けはブラウザで目視確認する。
+表示の出し分けは現状のテスト環境(jsdom なし)では書けないため、ブラウザで目視確認する。
 
 ## 確認(ブラウザ)
 
 1. 「実験: 記録のみ」タブで曲を弾き、**わざと違う指・違う鍵盤で弾く** →
-   ビープが鳴らない / 判定の文字が出ない / 指の帯が出ない / 集計が出ない / 判定ログの折りたたみが無い /
-   カメラに打鍵マーカーが出ない
+   ビープが鳴らない / 判定の文字が出ない / 指の帯が出ない / 集計が出ない /
+   判定ログの折りたたみが無い / カメラに黄線・緑丸が出ない
 2. 同じ操作を「P4: 練習」タブで行う → 今までどおりすべて出る(通常モードが変わっていない)
 3. 設定でフィードバック音を ON にしても、記録のみでは鳴らない
 4. 参照音は記録のみでも鳴る(押した音が聞こえる)
-5. 最後まで弾く → 自動で保存画面。集計とミス一覧が出ていない。JSON を保存すると
-   `mode: "recordOnly"` と参加者 ID が入っている。`log` の件数が通常モードと同じ基準
-6. 参加者 ID を入れてから保存 → ファイル名に入る
-7. 960×600(横持ち)でスクロールが出ない(集計などが減るので高さは増えない)
+5. **「処理速度 ◯ fps」が出てから弾く**。最後まで弾く → 自動で保存画面。
+   集計とミス一覧が出ていない。参加者 ID を入れて JSON を保存すると
+   `mode: "recordOnly"` と ID が入り、ファイル名にも入る。
+   **`fingering.kind === "skipped"`(reason: `noCamera`)が 0 件**であること
+   (キャリブレーション実施済みで弾いた場合。カメラなしモードでは全件 skipped が正常)
+   (カメラ起動前に弾くと運指データが空になるため、わざと起動直後に弾いて
+   この値で検出できることも 1 度確認する)
+6. 通常タブでも保存 → ファイル名は従来どおり、中身に `mode: "normal"` が入る
+7. 960×600(横持ち)でスクロールが出ない。**タブバーが 2 行に折り返していない**こと
 8. キャリブレーション未実施でも使える(音判定のみモードの案内が出る。運指は skipped)
 
 ## 実装手順(作業単位ごとに commit)
 
 1. 仕様書 F-13 の追加と本計画 → commit(済)
-2. `resultJson.ts` + テスト → `ResultScreen` から使う → commit
-3. `PracticeScreen` の `recordOnly` 対応 + `App` のタブ追加 → ブラウザで 1〜8 を確認 → commit
-4. `docs/android-check.md` と CLAUDE.md 進捗ログ → commit
-5. push(開発者の承認を得てから)
+2. `feedbackGate.ts` + `resultJson.ts` + テスト → commit
+3. `ResultScreen` を `resultJson.ts` 経由にする(この時点では通常モードのみ)。
+   **通常タブで保存して従来どおりか確認** → commit
+4. `PracticeScreen` の `recordOnly` 対応 + `ResultScreen` の記録のみ表示・ID 入力欄
+   + `App` のタブ追加 → ブラウザで 1〜8 を確認 → commit
+5. `docs/android-check.md` と CLAUDE.md 進捗ログ → commit
+6. push(開発者の承認を得てから)
 
 ## 技術的な注意点・リスク
 
 - **フィードバックを止め忘れる**のが最大のリスク(実験データが台無しになる)。
-  音は 2 か所(設定反映・ハンドラ)で止め、画面要素は「出さないもの」を 1 つずつ目視で確認する
-- タブを切り替えるとログが消える。**画面に注意書きを出す**。
-  (保存し忘れ対策をこれ以上作り込むのは、仕様に無いのでやらない)
+  音は純関数 + テスト + 設定反映の 2 か所で止め、画面要素は確認手順 1 で 1 つずつ目視する
+- **カメラ起動前に弾くと運指データが空になる**。画面の fps 表示で防ぎ、
+  JSON の `skipped(noCamera)` 件数で事後に検出できるようにする
+- タブを切り替えるとログが消える。操作バーに注意書きを出す
+  (自動保存を作り込むのは仕様に無いのでやらない)
+- **仕様の限界(卒論に書くこと)**: 音ミスではカーソルが進まない(7.1)ため、
+  「次に弾く音」と楽譜のハイライトが**動かないことで参加者にミスが伝わる**。
+  弾き飛ばし救済でカーソルが飛ぶのも同様。これは楽譜を見せる以上避けられないので、
+  「**音のミスは参加者自身にも分かる。このモードが隠すのは運指のミス**」という限界として
+  考察に書く
+- **F-11 段階 3(楽譜上のミス箇所の色付け)を実装するときは、記録のみで無効にする**こと
+  (`ScoreView` は今は現在位置のハイライトだけなので、今回の漏れはない)
 - 「次に弾く音」に指番号を出すのは**フィードバックではなく譜面の情報**。
   紙の楽譜に運指が印刷されているのと同じなので残す(F-13 に明記済み)
 - `recordOnly` を既定 false のオプショナルにし、既存の呼び出し(P4 練習タブ)は無変更にする
